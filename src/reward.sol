@@ -83,6 +83,8 @@ library Math {
 
 
 
+
+
 // File: @openzeppelin/contracts/GSN/Context.sol
 
 
@@ -685,8 +687,8 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         emit Staked(msg.sender, gem, amount);
 
         if (fairDistribution) {
-            // require amount below 12k for first 24 hours
-            require(balanceOf(msg.sender) <= 12000 * uint(10) ** IERC20(gem).decimals() || block.timestamp >= starttime.add(24*60*60));
+            // require amount below 50k for first 24 hours
+            require(balanceOf(msg.sender) <= 50000 * uint(10) ** IERC20(gem).decimals() || block.timestamp >= starttime.add(24*60*60));
         }
     }
 
@@ -742,5 +744,87 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp.add(duration);
         emit RewardAdded(reward);
+    }
+}
+
+
+interface VatLike {
+    function slip(bytes32,address,int) external;
+    function move(address,address,uint) external;
+}
+
+
+contract LibNote {
+    event LogNote(
+        bytes4   indexed  sig,
+        address  indexed  usr,
+        bytes32  indexed  arg1,
+        bytes32  indexed  arg2,
+        bytes             data
+    ) anonymous;
+
+    modifier note {
+        _;
+        assembly {
+            // log an 'anonymous' event with a constant 6 words of calldata
+            // and four indexed topics: selector, caller, arg1 and arg2
+            let mark := msize()                       // end of memory ensures zero
+            mstore(0x40, add(mark, 288))              // update free memory pointer
+            mstore(mark, 0x20)                        // bytes type data offset
+            mstore(add(mark, 0x20), 224)              // bytes size (padded)
+            calldatacopy(add(mark, 0x40), 0, 224)     // bytes payload
+            log4(mark, 288,                           // calldata
+                 shl(224, shr(224, calldataload(0))), // msg.sig
+                 caller(),                            // msg.sender
+                 calldataload(4),                     // arg1
+                 calldataload(36)                     // arg2
+                )
+        }
+    }
+}
+
+
+contract GemJoinWithReward is LibNote {
+    // --- Auth ---
+    mapping (address => uint) public wards;
+    function rely(address usr) external note auth { wards[usr] = 1; }
+    function deny(address usr) external note auth { wards[usr] = 0; }
+    modifier auth {
+        require(wards[msg.sender] == 1, "GemJoinWithReward/not-authorized");
+        _;
+    }
+
+    StakingRewards public rewarder;
+    VatLike public vat;   // CDP Engine
+    bytes32 public ilk;   // Collateral Type
+    IERC20  public gem;
+    uint    public dec;
+    uint    public live;  // Active Flag
+
+    constructor(address vat_, bytes32 ilk_, address gem_, address rewarder_) public {
+        wards[msg.sender] = 1;
+        live = 1;
+        vat = VatLike(vat_);
+        ilk = ilk_;
+        gem = IERC20(gem_);
+        rewarder = StakingRewards(rewarder_);
+        dec = gem.decimals();
+        require(dec >= 18, "GemJoinWithReward/decimals-18-or-higher");
+    }
+    function cage() external note auth {
+        live = 0;
+    }
+    function join(address usr, uint wad) external note {
+        require(live == 1, "GemJoinWithReward/not-live");
+        require(int(wad) >= 0, "GemJoinWithReward/overflow");
+        vat.slip(ilk, usr, int(wad));
+        rewarder.stake(wad, address(gem));
+        require(gem.transferFrom(msg.sender, address(this), wad), "GemJoinWithReward/failed-transfer");
+    }
+    function exit(address usr, uint wad) external note {
+        require(wad <= 2 ** 255, "GemJoinWithReward/overflow");
+        vat.slip(ilk, msg.sender, -int(wad));
+        rewarder.withdraw(wad, address(gem));
+        require(gem.transfer(usr, wad), "GemJoinWithReward/failed-transfer");
     }
 }
