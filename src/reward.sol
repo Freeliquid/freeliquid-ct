@@ -580,8 +580,6 @@ contract LPTokenWrapper is Initializable {
 
         _totalSupply = _totalSupply.add(value);
         _balances[msg.sender] = _balances[msg.sender].add(value);
-
-        IERC20(gem).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function withdraw(uint256 amount, address gem) public {
@@ -589,8 +587,6 @@ contract LPTokenWrapper is Initializable {
 
         _totalSupply = _totalSupply.sub(value);
         _balances[msg.sender] = _balances[msg.sender].sub(value);
-
-        IERC20(gem).safeTransfer(msg.sender, amount);
     }
 }
 
