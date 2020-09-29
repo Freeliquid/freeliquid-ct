@@ -28,7 +28,7 @@ import "./reward.sol";
 contract UniswapV2Pair is DSToken("UNIv2") {
 
     constructor(address _t0, address _t1) public {
-      decimals = 8;
+      decimals = 18;
       t0 = _t0;
       t1 = _t1;
     }
@@ -86,6 +86,14 @@ contract Token3 is DSToken("TOKEN3") {
 }
 
 
+contract VatMock {
+    function slip(bytes32,address,int) external {
+    }
+    function move(address,address,uint) external {
+    }
+}
+
+
 contract RewardTest is DSTest {
 
   DSToken token0;
@@ -98,6 +106,9 @@ contract RewardTest is DSTest {
   DSToken gov;
   UniswapAdapterForStables sadapter;
   StakingRewards rewards;
+  GemJoinWithReward join;
+  GemJoinWithReward join2;
+  GemJoinWithReward join3;
   Hevm hevm;
 
   function setUp() public {
@@ -113,6 +124,12 @@ contract RewardTest is DSTest {
     uniPair3 = new UniswapV2Pair(address(token0), address(token2));
 
     rewards = new StakingRewards();
+    address vat = address(new VatMock());
+
+    join = new GemJoinWithReward(vat, "testilk", address(uniPair), address(rewards));
+    join2 = new GemJoinWithReward(vat, "testilk2", address(uniPair2), address(rewards));
+    join3 = new GemJoinWithReward(vat, "testilk3", address(uniPair3), address(rewards));
+
     hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);//get hevm instance
   }
 
@@ -179,21 +196,32 @@ contract RewardTest is DSTest {
     assertTrue(rewards.deployer() == address(this));
   }
 
+  function prepareRewarder(uint256 starttime) public {
+    rewards.initialize(address(gov), 100, 100, starttime, false);
+  }
+
   function testInitialize() public {
-    rewards.initialize(address(gov), 100, 100, 10, false);
+    prepareRewarder(10);
     assertTrue(address(rewards.gov()) == address(gov));
 
-    rewards.registerPairDesc(address(uniPair), address(sadapter), 2);
-    // rewards.pairDescs(address(uniPair));
-    (address gem, address adapter, uint factor) = rewards.pairDescs(address(uniPair));
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 2, address(this));
+
+    (address gem, address adapter, address staker, uint factor) = rewards.pairDescs(address(uniPair));
+    assertEq(address(this), address(staker));
     assertEq(gem, address(uniPair));
     assertEq(adapter, address(sadapter));
     assertEq(factor, 2);
 
-    (gem, adapter, factor) = rewards.pairDescs(address(0x0));
+    (gem, adapter, staker, factor) = rewards.pairDescs(address(0x0));
     assertEq(gem, address(0));
     assertEq(adapter, address(0));
+    assertEq(staker, address(0));
     assertEq(factor, 0);
+  }
+
+  function joinHelper(GemJoinWithReward j, uint l) public {
+    j.gem().approve(address(j), l);
+    j.join(address(this), l);
   }
 
   function testUniAdapter() public {
@@ -239,11 +267,34 @@ contract RewardTest is DSTest {
     assertEq(r, v2 * 2);
   }
 
-
-  function testStakeUnstacke() public {
+  function testRightsForStake() public {
     uint starttime = 10;
-    rewards.initialize(address(gov), 100, 100, starttime, false);
-    rewards.registerPairDesc(address(uniPair), address(sadapter), 1);
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, address(this));
+
+    uint v = 10000;
+    uint l = addLiquidity(v);
+    uint l2 = addLiquidity2(v);
+
+    hevm.warp(starttime+1);
+
+
+    (bool ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.stake.selector, l, address(uniPair), address(this)));
+    if (ret) {
+      emit log_bytes32("stake must fail,no rights");
+      fail();
+    }
+
+    rewards.stake(l2, address(uniPair2), address(this));
+  }
+
+
+
+  function testStakeUnstake() public {
+    uint starttime = 10;
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
 
     uint v = 10000;
     uint l = addLiquidity(v);
@@ -255,17 +306,21 @@ contract RewardTest is DSTest {
     assertEq(rewards.balanceOf(address(this)), 0);
     assertEq(rewards.totalSupply(), 0);
 
-    (bool ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.stake.selector, l, address(uniPair)));
+    (bool ret, ) = address(this).call(abi.encodeWithSelector(this.joinHelper.selector, address(join), l));
     if (ret) {
-      emit log_bytes32("rewards.stake fail expected");
+      emit log_bytes32("join.join fail expected");
       fail();
     }
 
 
     hevm.warp(starttime+1);
-    rewards.stake(l, address(uniPair));
+    joinHelper(join, l);
+
+
+
+
     assertEq(uniPair.balanceOf(address(this)), 0);
-    assertEq(uniPair.balanceOf(address(rewards)), l);
+    assertEq(uniPair.balanceOf(address(join)), l);
 
     assertEq(rewards.balanceOf(address(this)), v*2);
     assertEq(rewards.totalSupply(), v*2);
@@ -275,21 +330,21 @@ contract RewardTest is DSTest {
     uint l2 = addLiquidity(v2);
 
     assertEq(uniPair.balanceOf(address(this)), l2);
-    assertEq(uniPair.balanceOf(address(rewards)), l);
+    assertEq(uniPair.balanceOf(address(join)), l);
     uniPair.approve(address(rewards), l2);
 
-    rewards.stake(l2, address(uniPair));
+    joinHelper(join, l2);
     assertEq(uniPair.balanceOf(address(this)), 0);
-    assertEq(uniPair.balanceOf(address(rewards)), l+l2);
+    assertEq(uniPair.balanceOf(address(join)), l+l2);
 
     assertEq(rewards.balanceOf(address(this)), v*2+v2*2);
     assertEq(rewards.totalSupply(), v*2+v2*2);
 
 
     uint w = l2*30/100;
-    rewards.withdraw(w, address(uniPair));
+    join.exit(address(this), w);
     assertEq(uniPair.balanceOf(address(this)), w);
-    assertEq(uniPair.balanceOf(address(rewards)), l+l2-w);
+    assertEq(uniPair.balanceOf(address(join)), l+l2-w);
 
     uint rem = sadapter.calc(address(uniPair), l+l2-w, 1);
 
@@ -297,18 +352,18 @@ contract RewardTest is DSTest {
     assertEq(rewards.totalSupply(), rem);
 
 
-    (ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.withdraw.selector, l+l2-w+1, address(uniPair)));
+    (ret, ) = address(join).call(abi.encodeWithSelector(join.exit.selector, address(this), l+l2-w+1));
     if (ret) {
       emit log_bytes32("rewards.withdraw fail expected");
       fail();
     }
 
     assertEq(uniPair.balanceOf(address(this)), w);
-    assertEq(uniPair.balanceOf(address(rewards)), l+l2-w);
+    assertEq(uniPair.balanceOf(address(join)), l+l2-w);
 
-    rewards.withdraw(l+l2-w, address(uniPair));
+    join.exit(address(this), l+l2-w);
     assertEq(uniPair.balanceOf(address(this)), l+l2);
-    assertEq(uniPair.balanceOf(address(rewards)), 0);
+    assertEq(uniPair.balanceOf(address(join)), 0);
 
     assertEq(rewards.balanceOf(address(this)), 0);
     assertEq(rewards.totalSupply(), 0);
@@ -335,10 +390,10 @@ contract RewardTest is DSTest {
 
   function testStakeUnstacke3Uni() public {
     uint starttime = 10;
-    rewards.initialize(address(gov), 100, 100, starttime, false);
-    rewards.registerPairDesc(address(uniPair), address(sadapter), 1);
-    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1);
-    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1);
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, address(join2));
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(join3));
 
     uniPair.approve(address(rewards));
     uniPair2.approve(address(rewards));
@@ -350,10 +405,10 @@ contract RewardTest is DSTest {
     vars.l = addLiquidity(vars.v/2);
 
     hevm.warp(starttime+1);
-    rewards.stake(vars.l, address(uniPair));
+    joinHelper(join, vars.l);
 
-    assertEq(uniPair.balanceOf(address(this)), 0);
-    assertEq(uniPair.balanceOf(address(rewards)), vars.l);
+    assertEqM(uniPair.balanceOf(address(this)), 0, "-4");
+    assertEqM(uniPair.balanceOf(address(join)), vars.l, "-3");
 
     assertEqM(rewards.balanceOf(address(this)), vars.v, "balanceOf vars.v");
     assertEqM(rewards.totalSupply(), vars.v, "totalSupply vars.v");
@@ -361,26 +416,26 @@ contract RewardTest is DSTest {
 
     vars.v2 = 20000;
     vars.l2 = addLiquidity2(vars.v2/2);
-    rewards.stake(vars.l2, address(uniPair2));
+    joinHelper(join2, vars.l2);
 
-    assertEq(uniPair.balanceOf(address(this)), 0);
-    assertEq(uniPair.balanceOf(address(rewards)), vars.l);
+    assertEqM(uniPair.balanceOf(address(this)), 0, "-2");
+    assertEqM(uniPair.balanceOf(address(join)), vars.l, "-1");
 
     assertEqM(uniPair2.balanceOf(address(this)), 0, "1");
-    assertEqM(uniPair2.balanceOf(address(rewards)), vars.l2, "2");
+    assertEqM(uniPair2.balanceOf(address(join2)), vars.l2, "2");
 
     assertEqM(rewards.balanceOf(address(this)), vars.v2+vars.v, "3");
     assertEqM(rewards.totalSupply(), vars.v2+vars.v, "4");
 
     vars.v22 = 1000;
     vars.l22 = addLiquidity2(vars.v22/2);
-    rewards.stake(vars.l22, address(uniPair2));
+    joinHelper(join2, vars.l22);
 
     assertEq(uniPair.balanceOf(address(this)), 0);
-    assertEq(uniPair.balanceOf(address(rewards)), vars.l);
+    assertEq(uniPair.balanceOf(address(join)), vars.l);
 
     assertEqM(uniPair2.balanceOf(address(this)), 0, "21");
-    assertEqM(uniPair2.balanceOf(address(rewards)), vars.l2+vars.l22, "22");
+    assertEqM(uniPair2.balanceOf(address(join2)), vars.l2+vars.l22, "22");
 
     assertEqM(rewards.balanceOf(address(this)), vars.v22+vars.v2+vars.v, "23");
     assertEqM(rewards.totalSupply(), vars.v22+vars.v2+vars.v, "24");
@@ -388,16 +443,16 @@ contract RewardTest is DSTest {
 
     vars.v3 = 200000;
     vars.l3 = addLiquidity3(vars.v3/2);
-    rewards.stake(vars.l3, address(uniPair3));
+    joinHelper(join3, vars.l3);
 
     assertEq(uniPair.balanceOf(address(this)), 0);
-    assertEq(uniPair.balanceOf(address(rewards)), vars.l);
+    assertEq(uniPair.balanceOf(address(join)), vars.l);
 
     assertEqM(uniPair2.balanceOf(address(this)), 0, "31");
-    assertEqM(uniPair2.balanceOf(address(rewards)), vars.l2+vars.l22, "32");
+    assertEqM(uniPair2.balanceOf(address(join2)), vars.l2+vars.l22, "32");
 
     assertEqM(uniPair3.balanceOf(address(this)), 0, "33");
-    assertEqM(uniPair3.balanceOf(address(rewards)), vars.l3, "34");
+    assertEqM(uniPair3.balanceOf(address(join3)), vars.l3, "34");
 
 
     assertEqM(rewards.balanceOf(address(this)), vars.v3+vars.v22+vars.v2+vars.v, "35");
@@ -405,15 +460,15 @@ contract RewardTest is DSTest {
 
 /////////////////////
     vars.w = vars.l*30/100;
-    rewards.withdraw(vars.w, address(uniPair));
+    join.exit(address(this), vars.w);
     assertEq(uniPair.balanceOf(address(this)), vars.w);
-    assertEq(uniPair.balanceOf(address(rewards)), vars.l-vars.w);
+    assertEq(uniPair.balanceOf(address(join)), vars.l-vars.w);
 
     assertEqM(uniPair2.balanceOf(address(this)), 0, "41");
-    assertEqM(uniPair2.balanceOf(address(rewards)), vars.l2+vars.l22, "42");
+    assertEqM(uniPair2.balanceOf(address(join2)), vars.l2+vars.l22, "42");
 
     assertEqM(uniPair3.balanceOf(address(this)), 0, "43");
-    assertEqM(uniPair3.balanceOf(address(rewards)), vars.l3, "44");
+    assertEqM(uniPair3.balanceOf(address(join3)), vars.l3, "44");
 
 
     vars.rem = sadapter.calc(address(uniPair), vars.w, 1);
@@ -422,12 +477,12 @@ contract RewardTest is DSTest {
 
 /////////////////////
     vars.w3 = vars.l3*50/100;
-    rewards.withdraw(vars.w3, address(uniPair3));
+    join3.exit(address(this), vars.w3);
     assertEq(uniPair.balanceOf(address(this)), vars.w);
-    assertEq(uniPair.balanceOf(address(rewards)), vars.l-vars.w);
+    assertEq(uniPair.balanceOf(address(join)), vars.l-vars.w);
 
     assertEq(uniPair3.balanceOf(address(this)), vars.w3);
-    assertEq(uniPair3.balanceOf(address(rewards)), vars.l3-vars.w3);
+    assertEq(uniPair3.balanceOf(address(join3)), vars.l3-vars.w3);
 
 
     vars.rem3 = sadapter.calc(address(uniPair3), vars.w3, 1);
@@ -437,16 +492,16 @@ contract RewardTest is DSTest {
 
 /////////////////////
     vars.w12 = vars.l-vars.w;
-    rewards.withdraw(vars.w12, address(uniPair));
+    join.exit(address(this), vars.w12);
     assertEqM(uniPair.balanceOf(address(this)), vars.w+vars.w12, "511");
     assertEqM(uniPair.balanceOf(address(this)), vars.l, "512");
-    assertEqM(uniPair.balanceOf(address(rewards)), 0, "513");
+    assertEqM(uniPair.balanceOf(address(join)), 0, "513");
 
     assertEqM(uniPair2.balanceOf(address(this)), 0, "51");
-    assertEqM(uniPair2.balanceOf(address(rewards)), vars.l2+vars.l22, "52");
+    assertEqM(uniPair2.balanceOf(address(join2)), vars.l2+vars.l22, "52");
 
     assertEq(uniPair3.balanceOf(address(this)), vars.w3);
-    assertEq(uniPair3.balanceOf(address(rewards)), vars.l3-vars.w3);
+    assertEq(uniPair3.balanceOf(address(join3)), vars.l3-vars.w3);
 
 
     vars.rem12 = sadapter.calc(address(uniPair), vars.w12, 1);

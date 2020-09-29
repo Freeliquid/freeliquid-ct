@@ -550,6 +550,7 @@ contract LPTokenWrapper is Initializable {
     struct PairDesc {
         address gem;
         address adapter;
+        address staker;
         uint factor;
     }
 
@@ -570,23 +571,23 @@ contract LPTokenWrapper is Initializable {
 
     function calcValue(uint256 amount, address gem) internal view returns (uint256) {
         PairDesc storage desc = pairDescs[gem];
+        require(desc.staker == msg.sender);
         require(desc.adapter != address(0x0));
         assert(desc.gem == gem);
         return IAdapter(desc.adapter).calc(gem, amount, desc.factor);
     }
 
-    function stake(uint256 amount, address gem) public {
+    function stake(uint256 amount, address gem, address usr) public {
         uint256 value = calcValue(amount, gem);
-
         _totalSupply = _totalSupply.add(value);
-        _balances[msg.sender] = _balances[msg.sender].add(value);
+        _balances[usr] = _balances[usr].add(value);
     }
 
-    function withdraw(uint256 amount, address gem) public {
+    function withdraw(uint256 amount, address gem, address usr) public {
         uint256 value = calcValue(amount, gem);
 
         _totalSupply = _totalSupply.sub(value);
-        _balances[msg.sender] = _balances[msg.sender].sub(value);
+        _balances[usr] = _balances[usr].sub(value);
     }
 }
 
@@ -639,14 +640,14 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         notifyRewardAmount(_initreward.mul(50).div(100));
     }
 
-    function registerPairDesc(address gem, address adapter, uint factor) public {
+    function registerPairDesc(address gem, address adapter, uint factor, address staker) public {
         // only deployer can do it
         require(deployer == msg.sender);
 
         require(gem != address(0x0));
         require(adapter != address(0x0));
 
-        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor});
+        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker});
     }
 
 
@@ -677,27 +678,23 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
     }
 
     // stake visibility is public as overriding LPTokenWrapper's stake() function
-    function stake(uint256 amount, address gem) public updateReward(msg.sender) checkhalve checkStart{
+    function stake(uint256 amount, address gem, address usr) public updateReward(usr) checkhalve checkStart{
         require(amount > 0, "Cannot stake 0");
-        super.stake(amount, gem);
-        emit Staked(msg.sender, gem, amount);
+        super.stake(amount, gem, usr);
+        emit Staked(usr, gem, amount);
 
         if (fairDistribution) {
             // require amount below 50k for first 24 hours
-            require(balanceOf(msg.sender) <= 50000 * uint(10) ** IERC20(gem).decimals() || block.timestamp >= starttime.add(24*60*60));
+            require(balanceOf(usr) <= 50000 * uint(10) ** IERC20(gem).decimals() || block.timestamp >= starttime.add(24*60*60));
         }
     }
 
-    function withdraw(uint256 amount, address gem) public updateReward(msg.sender) checkhalve checkStart{
+    function withdraw(uint256 amount, address gem, address usr) public updateReward(usr) checkhalve checkStart{
         require(amount > 0, "Cannot withdraw 0");
-        super.withdraw(amount, gem);
-        emit Withdrawn(msg.sender, gem, amount);
+        super.withdraw(amount, gem, usr);
+        emit Withdrawn(usr, gem, amount);
     }
 
-    // function exit() external {
-    //     withdraw(balanceOf(msg.sender));
-    //     getReward();
-    // }
 
     function getReward() public updateReward(msg.sender) checkhalve checkStart{
         uint256 reward = earned(msg.sender);
@@ -814,13 +811,13 @@ contract GemJoinWithReward is LibNote {
         require(live == 1, "GemJoinWithReward/not-live");
         require(int(wad) >= 0, "GemJoinWithReward/overflow");
         vat.slip(ilk, usr, int(wad));
-        rewarder.stake(wad, address(gem));
+        rewarder.stake(wad, address(gem), usr);
         require(gem.transferFrom(msg.sender, address(this), wad), "GemJoinWithReward/failed-transfer");
     }
     function exit(address usr, uint wad) external note {
         require(wad <= 2 ** 255, "GemJoinWithReward/overflow");
         vat.slip(ilk, msg.sender, -int(wad));
-        rewarder.withdraw(wad, address(gem));
+        rewarder.withdraw(wad, address(gem), usr);
         require(gem.transfer(usr, wad), "GemJoinWithReward/failed-transfer");
     }
 }
