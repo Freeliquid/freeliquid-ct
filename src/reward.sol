@@ -803,9 +803,5 @@ contract RewardProxyActions {
         uint256 reward = StakingRewards(rewarder).getReward();
         IERC20(StakingRewards(rewarder).gov()).transfer(msg.sender, reward);
     }
-
-    function earned(address rewarder) public view returns (uint256) {
-        return StakingRewards(rewarder).earned(address(this));
-    }
 }
 
