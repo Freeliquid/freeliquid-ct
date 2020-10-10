@@ -48,8 +48,8 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
     function setup(address _priceETHUSDT, address _priceUSDETH, address _gem) public {
         require(deployer == msg.sender);
 
-        priceETHUSDT = AggregatorV3Interface(_priceETHUSDT); //1/354 USD
-        priceUSDETH = AggregatorV3Interface(_priceUSDETH); //354 USD
+        priceETHUSDT = AggregatorV3Interface(_priceETHUSDT); //1/354 USD kovan:0x0bF499444525a23E7Bb61997539725cA2e928138
+        priceUSDETH = AggregatorV3Interface(_priceUSDETH); //354 USD kovan:0x9326BFA02ADD2366b30bacB125260Af641031331
         gem = UniswapV2PairLike(_gem);
     }
 
@@ -83,7 +83,7 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         uint totalValue = r0.add(r1); //total value in uni's reserves
         uint supply = gem.totalSupply();
 
-        return (bytes32(totalValue.mul(10**18).div(supply)), true);
+        return (bytes32(totalValue.mul(10**18).mul(gem.decimals()).div(supply)), true);
     }
 
 
