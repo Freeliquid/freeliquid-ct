@@ -83,7 +83,7 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         uint totalValue = r0.add(r1); //total value in uni's reserves
         uint supply = gem.totalSupply();
 
-        return (bytes32(totalValue.mul(10**18).mul(gem.decimals()).div(supply)), true);
+        return (bytes32(totalValue.mul(10**(uint(gem.decimals()).add(18))).div(supply)), true);
     }
 
 
