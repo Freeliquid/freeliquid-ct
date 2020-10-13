@@ -87,8 +87,8 @@ contract OracleTest is DSTest {
     priceETHUSDT = new AggregatorV3Stub();
     priceUSDETH = new AggregatorV3Stub();
 
-		t0 = new Token("USDT", 6);
-		t1 = new Token("USDC", 6);
+		t0 = new Token("USDC", 6);
+		t1 = new Token("USDT", 6);
 
     uni = new UniswapToken(18);
     uni.setupTokens(t0, t1);
@@ -124,6 +124,35 @@ contract OracleTest is DSTest {
 		assertEq(uni.totalSupply(), 1000*(10**18));
 		assertEq(t0.totalSupply(), 1000*(10**6));
 		assertEq(t1.totalSupply(), 1000*(10**6));
+		assertEq(val, uint(2 * 10**18));
+	}
+
+
+	function test2() public {
+		uni.mint(address(this), 1000*(10**18));
+		mintToUni(1000*(10**6));
+
+    priceETHUSDT.setAnswer(2500000000000000);
+    priceUSDETH.setAnswer(200000000000000000000);
+
+		uint val = readOracle();
+		assertEq(uni.totalSupply(), 1000*(10**18));
+		assertEq(t0.totalSupply(), 1000*(10**6));
+		assertEq(t1.totalSupply(), 1000*(10**6));
+		assertEq(val, uint(15 * 10**17));
+	}
+
+	function test3() public {
+		uni.mint(address(this), 1000*(10**18));
+		mintToUni(1000*(10**6), 2000*(10**6));
+
+    priceETHUSDT.setAnswer(2500000000000000);
+    priceUSDETH.setAnswer(200000000000000000000);
+
+		uint val = readOracle();
+		assertEq(uni.totalSupply(), 1000*(10**18));
+		assertEq(t0.totalSupply(), 1000*(10**6));
+		assertEq(t1.totalSupply(), 2000*(10**6));
 		assertEq(val, uint(2 * 10**18));
 	}
 
