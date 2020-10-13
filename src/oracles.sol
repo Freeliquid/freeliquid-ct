@@ -72,19 +72,21 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         tokenPair.t0 = gem.token0(); //USDC
         tokenPair.t1 = gem.token1(); //USDT
 
-        uint r0 = uint(_reserve0).div(uint(10) ** IERC20(tokenPair.t0).decimals()); //assume USDC == 1 USD
+        uint usdPrec = 10**6;
+
+        uint r0 = uint(_reserve0).mul(usdPrec).div(uint(10) ** IERC20(tokenPair.t0).decimals()); //assume USDC == 1 USD
 
         uint price1Div = 10**(uint(priceETHUSDT.decimals())
                              .add(uint(priceUSDETH.decimals()))
                              .add(uint(IERC20(tokenPair.t1).decimals())));
 
         uint usdtPrice = uint(answerUSDETH).mul(uint(answerETHUSDT));
-        uint r1 = uint(_reserve1).mul(usdtPrice).div(price1Div);
+        uint r1 = uint(_reserve1).mul(usdPrec).mul(usdtPrice).div(price1Div);
 
         uint totalValue = r0.add(r1); //total value in uni's reserves
         uint supply = gem.totalSupply();
 
-        return (bytes32(totalValue.mul(10**(uint(gem.decimals()).add(18))).div(supply)), true);
+        return (bytes32(totalValue.mul(10**(uint(gem.decimals()).add(18))).div(supply.mul(usdPrec))), true);
     }
 
 
