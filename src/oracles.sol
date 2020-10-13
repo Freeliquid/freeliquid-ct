@@ -61,10 +61,10 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         (, int256 answerUSDETH, , ,) = priceUSDETH.latestRoundData();
         (, int256 answerETHUSDT, , ,) = priceETHUSDT.latestRoundData();
 
-        if (answerUSDETH <= 0 || answerETHUSDT <= 0)
+        if (answerUSDETH <= 0 || answerETHUSDT <= 0) {
             return (0x0, false);
+        }
 
-        uint usdtPrice = uint(answerUSDETH).mul(uint(answerETHUSDT));
 
         (uint112 _reserve0, uint112 _reserve1,) = gem.getReserves();
 
@@ -78,6 +78,7 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
                              .add(uint(priceUSDETH.decimals()))
                              .add(uint(IERC20(tokenPair.t1).decimals())));
 
+        uint usdtPrice = uint(answerUSDETH).mul(uint(answerETHUSDT));
         uint r1 = uint(_reserve1).mul(usdtPrice).div(price1Div);
 
         uint totalValue = r0.add(r1); //total value in uni's reserves
