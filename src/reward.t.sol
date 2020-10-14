@@ -111,6 +111,10 @@ contract RewardTest is DSTest {
   GemJoinWithReward join3;
   Hevm hevm;
 
+  uint constant totalRewardsMul =  1e18;
+  uint totalRewards =   100000*totalRewardsMul;
+  uint rewardDuration = 1000000;
+
   function setUp() public {
     gov = new DSToken("GOV");
     token0 = new Token0(18);
@@ -197,7 +201,7 @@ contract RewardTest is DSTest {
   }
 
   function prepareRewarder(uint256 starttime) public {
-    rewards.initialize(address(gov), 100, 100, starttime, false);
+    rewards.initialize(address(gov), rewardDuration, totalRewards, starttime, false);
   }
 
   function testInitialize() public {
@@ -313,8 +317,18 @@ contract RewardTest is DSTest {
     }
 
 
+
+
     hevm.warp(starttime+1);
+    uint256 rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady, 0, "rewardReady 0");
+
     joinHelper(join, l);
+
+
+    hevm.warp(starttime+rewardDuration/2+1);
+    rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady, totalRewards/2, "rewardReady totalRewards/2");
 
 
 
@@ -340,17 +354,32 @@ contract RewardTest is DSTest {
     assertEq(rewards.balanceOf(address(this)), v*2+v2*2);
     assertEq(rewards.totalSupply(), v*2+v2*2);
 
+    hevm.warp(starttime+rewardDuration*400/500+1);
+    rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady, totalRewards*400/500, "rewardReady totalRewards 4/5 a");
+
 
     uint w = l2*30/100;
     join.exit(address(this), w);
     assertEq(uniPair.balanceOf(address(this)), w);
     assertEq(uniPair.balanceOf(address(join)), l+l2-w);
 
+    rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady, totalRewards*400/500, "rewardReady totalRewards 4/5 b");
+
+
     uint rem = sadapter.calc(address(uniPair), l+l2-w, 1);
 
     assertEq(rewards.balanceOf(address(this)), rem);
     assertEq(rewards.totalSupply(), rem);
 
+    hevm.warp(starttime+rewardDuration*90/100+1);
+    rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady+1, totalRewards*90/100, "rewardReady totalRewards 9/10");
+
+    hevm.warp(starttime+rewardDuration+2);
+    rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady+1*totalRewardsMul+1, totalRewards, "rewardReady totalRewards 100%");
 
     (ret, ) = address(join).call(abi.encodeWithSelector(join.exit.selector, address(this), l+l2-w+1));
     if (ret) {

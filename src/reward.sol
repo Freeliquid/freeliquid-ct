@@ -429,8 +429,6 @@ library SafeERC20 {
 contract IRewardDistributionRecipient is Ownable {
     address rewardDistribution;
 
-    function notifyRewardAmount(uint256 reward) internal;
-
     modifier onlyRewardDistribution() {
         require(_msgSender() == rewardDistribution, "Caller is not reward distribution");
         _;
@@ -612,6 +610,7 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
     mapping(address => uint256) public rewards;
 
     event RewardAdded(uint256 reward);
+    event StopRewarding();
     event Staked(address indexed user, address indexed gem, uint256 amount);
     event Withdrawn(address indexed user, address indexed gem, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
@@ -639,7 +638,7 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         duration = _duration;
         starttime = _starttime;
         fairDistribution = _fairDistribution;
-        notifyRewardAmount(_initreward.mul(50).div(100));
+        initRewardAmount(_initreward);
     }
 
     function registerPairDesc(address gem, address adapter, uint factor, address staker) public {
@@ -680,7 +679,7 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
     }
 
     // stake visibility is public as overriding LPTokenWrapper's stake() function
-    function stake(uint256 amount, address gem, address usr) public updateReward(usr) checkhalve checkStart{
+    function stake(uint256 amount, address gem, address usr) public updateReward(usr) checkFinish checkStart{
         require(amount > 0, "Cannot stake 0");
         super.stake(amount, gem, usr);
         emit Staked(usr, gem, amount);
@@ -691,14 +690,14 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         }
     }
 
-    function withdraw(uint256 amount, address gem, address usr) public updateReward(usr) checkhalve checkStart{
+    function withdraw(uint256 amount, address gem, address usr) public updateReward(usr) checkFinish checkStart{
         require(amount > 0, "Cannot withdraw 0");
         super.withdraw(amount, gem, usr);
         emit Withdrawn(usr, gem, amount);
     }
 
 
-    function getReward() public updateReward(msg.sender) checkhalve checkStart returns (uint256) {
+    function getReward() public updateReward(msg.sender) checkFinish checkStart returns (uint256) {
         uint256 reward = earned(msg.sender);
         if (reward > 0) {
             rewards[msg.sender] = 0;
@@ -710,13 +709,12 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         return 0;
     }
 
-    modifier checkhalve(){
-        if (block.timestamp >= periodFinish) {
-            initreward = initreward.mul(50).div(100);
-
-            rewardRate = initreward.div(duration);
-            periodFinish = block.timestamp.add(duration);
-            emit RewardAdded(initreward);
+    modifier checkFinish(){
+        if (block.timestamp > periodFinish) {
+            initreward = 0;
+            rewardRate = 0;
+            periodFinish = uint256(-1);
+            emit StopRewarding();
         }
         _;
     }
@@ -726,17 +724,11 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         _;
     }
 
-    function notifyRewardAmount(uint256 reward)
+    function initRewardAmount(uint256 reward)
         internal
         updateReward(address(0))
     {
-        if (block.timestamp >= periodFinish) {
-            rewardRate = reward.div(duration);
-        } else {
-            uint256 remaining = periodFinish.sub(block.timestamp);
-            uint256 leftover = remaining.mul(rewardRate);
-            rewardRate = reward.add(leftover).div(duration);
-        }
+        rewardRate = reward.div(duration);
         initreward = reward;
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp.add(duration);
