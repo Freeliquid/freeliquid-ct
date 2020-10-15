@@ -585,7 +585,12 @@ contract RewardTest is DSTest {
 
   }
 
-  function rewardForTwoUsers(uint value1, uint value2, uint amntMult, uint expectEarned1, uint expectEarned2, int err) public {
+  function rewardForTwoUsers(uint value1, uint value2,
+                             uint amntMult,
+                             uint expectEarned1,
+                             uint expectEarned2,
+                             int err,
+                             bool claimTimeInvariant1) public {
 
     uint starttime = 10;
     prepareRewarder(starttime);
@@ -637,16 +642,30 @@ contract RewardTest is DSTest {
 
     assertEqM(totalRewards, gov.balanceOf(address(rewards)), "gov rewards bal full");
 
-    assertEqM(earned1, user1.getReward(rewards), "getReward1");
+    if (!claimTimeInvariant1) {
+      assertEqM(earned1, user1.getReward(rewards), "getReward1");
+    }
     assertEqM(earned2, user2.getReward(rewards), "getReward2");
 
-    assertEqM(rewards.earned(address(user1)), 0, "earned1 0 after claim");
-    assertEqM(rewards.earned(address(user1)), 0, "earned2 0 after claim");
+    if (!claimTimeInvariant1) {
+      assertEqM(rewards.earned(address(user1)), 0, "earned1 0 after claim");
+    } else {
+      assertEqM(rewards.earned(address(user1)), expectEarned1, "earned1 as expected after claim");
+    }
+    assertEqM(rewards.earned(address(user2)), 0, "earned2 0 after claim");
 
-    assertEqM(earned1, gov.balanceOf(address(user1)), "gov1 bal");
+    if (!claimTimeInvariant1) {
+      assertEqM(earned1, gov.balanceOf(address(user1)), "gov1 bal");
+    } else {
+      assertEqM(0, gov.balanceOf(address(user1)), "gov1 bal zero after claim");
+    }
     assertEqM(earned2, gov.balanceOf(address(user2)), "gov2 bal");
 
-    assertEqM(totalRewards-(earned1+earned2), gov.balanceOf(address(rewards)), "gov rewards bal was spent");
+    if (!claimTimeInvariant1) {
+      assertEqM(totalRewards-(earned1+earned2), gov.balanceOf(address(rewards)), "gov rewards bal was spent inv");
+    } else {
+      assertEqM(totalRewards-(earned2), gov.balanceOf(address(rewards)), "gov rewards bal was spent");
+    }
 
     user1.exit(join3, uniPair3Amnt);
 
@@ -657,10 +676,18 @@ contract RewardTest is DSTest {
 
     uint earned1f = rewards.earned(address(user1));
     uint earned2f = rewards.earned(address(user2));
-    assertEqM(earned1f, 0, "rewardReadyInFuture1 is 0");
+    if (!claimTimeInvariant1) {
+      assertEqM(earned1f, 0, "rewardReadyInFuture1 is 0");
+    } else {
+      assertEqM(earned1f, expectEarned1, "rewardReadyInFuture1 is 0");
+    }
     assertEqM(earned2f/totalRewardsMul+1, (totalRewards-(earned1+earned2))/totalRewardsMul, "rewardReadyInFuture2 is remain");
 
-    assertEqM(0, user1.getReward(rewards), "getReward1f is 0");
+    if (!claimTimeInvariant1) {
+      assertEqM(0, user1.getReward(rewards), "getReward1f is 0");
+    } else {
+      assertEqM(earned1f, user1.getReward(rewards), "getReward1f is 0");
+    }
     assertEqM(earned2f, user2.getReward(rewards), "getReward2 is remain");
 
     assertEqM(earned1, gov.balanceOf(address(user1)), "gov1f bal");
@@ -702,11 +729,18 @@ contract RewardTest is DSTest {
   }
 
   function testRewardIsBasedOnUSDEquityNotTokenAmnt() public {
-    rewardForTwoUsers(10000, 10000, 1000000000000000, totalRewards/4, totalRewards/4, 0);
+    rewardForTwoUsers(10000, 10000, 1000000000000000, totalRewards/4, totalRewards/4, 0, false);
   }
 
   function testRewardIsBasedOnUSDEquityDifferentUsers() public {
-    rewardForTwoUsers(10000, 20000, 500000000000000, 16666666666666666666666, 33333333333333333333333, 1);
+    rewardForTwoUsers(10000, 20000, 500000000000000, 16666666666666666666666, 33333333333333333333333, 1, false);
   }
 
+  function testRewardIsBasedOnUSDEquityNotTokenAmntClaimInvariant() public {
+    rewardForTwoUsers(10000, 10000, 1000000000000000, totalRewards/4, totalRewards/4, 0, true);
+  }
+
+  function testRewardIsBasedOnUSDEquityDifferentUsersClaimInvariant() public {
+    rewardForTwoUsers(10000, 20000, 500000000000000, 16666666666666666666666, 33333333333333333333333, 1, true);
+  }
 }
