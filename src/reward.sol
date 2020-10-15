@@ -42,13 +42,14 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 */
 
-pragma solidity ^0.5.0;
+pragma solidity ^0.5.12;
 
-
+import "./IERC20.sol";
+import "./base.sol";
 import "./uni.sol";
+import "./mooni.sol";
 import "./safeMath.sol";
 import "./lib.sol";
-
 
 // File: @openzeppelin/contracts/math/Math.sol
 
@@ -79,10 +80,6 @@ library Math {
         return (a / 2) + (b / 2) + ((a % 2 + b % 2) / 2);
     }
 }
-
-// File: @openzeppelin/contracts/math/SafeMath.sol
-
-
 
 
 
@@ -192,91 +189,10 @@ contract Ownable is Context {
     }
 }
 
-// File: @openzeppelin/contracts/token/ERC20/IERC20.sol
-
-
-/**
- * @dev Interface of the ERC20 standard as defined in the EIP. Does not include
- * the optional functions; to access them see {ERC20Detailed}.
- */
-interface IERC20 {
-
-    function decimals() external view returns(uint8);
-
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `recipient`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function mint(address account, uint amount) external;
-
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `sender` to `recipient` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-}
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-pragma solidity ^0.5.5;
+
 
 /**
  * @dev Collection of functions related to the address type
@@ -442,8 +358,6 @@ contract IRewardDistributionRecipient is Ownable {
     }
 }
 
-pragma solidity >=0.4.24 <0.6.0;
-
 
 /**
  * @title Initializable
@@ -501,44 +415,6 @@ contract Initializable {
 }
 
 
-// File: contracts/CurveRewards.sol
-
-
-
-
-interface IAdapter {
-    function calc(address gem, uint acc, uint factor) external view returns (uint);
-}
-
-
-
-contract UniswapAdapterForStables is IAdapter {
-    using SafeMath for uint;
-
-    struct TokenPair {
-        address t0;
-        address t1;
-    }
-
-
-    function calc(address gem, uint value, uint factor) external view returns (uint) {
-
-        (uint112 _reserve0, uint112 _reserve1,) = UniswapV2PairLike(gem).getReserves();
-
-        TokenPair memory tokenPair;
-        tokenPair.t0 = UniswapV2PairLike(gem).token0();
-        tokenPair.t1 = UniswapV2PairLike(gem).token1();
-
-        uint r0 = uint(_reserve0).div(uint(10) ** IERC20(tokenPair.t0).decimals());
-        uint r1 = uint(_reserve1).div(uint(10) ** IERC20(tokenPair.t1).decimals());
-
-        uint totalValue = r0.min(r1).mul(2); //total value in uni's reserves for stables only
-
-        uint supply = UniswapV2PairLike(gem).totalSupply();
-
-        return value.mul(totalValue).mul(factor).div(supply);
-    }
-}
 
 
 
