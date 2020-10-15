@@ -46,8 +46,6 @@ pragma solidity ^0.5.12;
 
 import "./IERC20.sol";
 import "./base.sol";
-import "./uni.sol";
-import "./mooni.sol";
 import "./safeMath.sol";
 import "./lib.sol";
 

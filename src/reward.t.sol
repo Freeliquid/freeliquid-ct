@@ -17,6 +17,7 @@ pragma solidity ^0.5.10;
 
 import "ds-test/test.sol";
 import "ds-token/token.sol";
+import "./uni.sol";
 
 contract Hevm {
     function warp(uint256) public;
