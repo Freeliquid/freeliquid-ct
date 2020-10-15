@@ -568,22 +568,22 @@ contract LPTokenWrapper is Initializable {
         return _balances[account];
     }
 
-    function calcValue(uint256 amount, address gem) internal view returns (uint256) {
+    function calcCheckValue(uint256 amount, address gem, bool check) public view returns (uint256) {
         PairDesc storage desc = pairDescs[gem];
-        require(desc.staker == msg.sender);
+        require(!check || desc.staker == msg.sender);
         require(desc.adapter != address(0x0));
         assert(desc.gem == gem);
         return IAdapter(desc.adapter).calc(gem, amount, desc.factor);
     }
 
     function stake(uint256 amount, address gem, address usr) public {
-        uint256 value = calcValue(amount, gem);
+        uint256 value = calcCheckValue(amount, gem, true);
         _totalSupply = _totalSupply.add(value);
         _balances[usr] = _balances[usr].add(value);
     }
 
     function withdraw(uint256 amount, address gem, address usr) public {
-        uint256 value = calcValue(amount, gem);
+        uint256 value = calcCheckValue(amount, gem, true);
 
         _totalSupply = _totalSupply.sub(value);
         _balances[usr] = _balances[usr].sub(value);

@@ -85,6 +85,12 @@ contract Token3 is DSToken("TOKEN3") {
     }
 }
 
+contract Token4 is DSToken("TOKEN4") {
+    constructor(uint d) public {
+      decimals = d;
+    }
+}
+
 
 contract VatMock {
     function slip(bytes32,address,int) external {
@@ -94,38 +100,67 @@ contract VatMock {
 }
 
 
+contract User {
+  bytes32 body;
+
+  function joinHelper(GemJoinWithReward j, uint l, address urn) public {
+    j.gem().approve(address(j), l);
+    j.join(urn, l);
+  }
+
+
+  function exit(GemJoinWithReward j, uint l) public {
+    j.exit(address(this), l);
+  }
+
+  function getReward(StakingRewards rewards) public returns (uint256) {
+    return rewards.getReward();
+  }
+}
+
 contract RewardTest is DSTest {
 
   DSToken token0;
   DSToken token1;
   DSToken token2;
   DSToken token3;
+  DSToken token4;
   UniswapV2Pair uniPair;
   UniswapV2Pair uniPair2;
   UniswapV2Pair uniPair3;
+  UniswapV2Pair uniPair4;
   DSToken gov;
   UniswapAdapterForStables sadapter;
   StakingRewards rewards;
   GemJoinWithReward join;
   GemJoinWithReward join2;
   GemJoinWithReward join3;
+  GemJoinWithReward join4;
   Hevm hevm;
+
+  User user1;
+  User user2;
 
   uint constant totalRewardsMul =  1e18;
   uint totalRewards =   100000*totalRewardsMul;
   uint rewardDuration = 1000000;
 
   function setUp() public {
+    user1 = new User();
+    user2 = new User();
+
     gov = new DSToken("GOV");
     token0 = new Token0(18);
     token1 = new Token1(8);
     token2 = new Token2(24);
-    token3 = new Token3(12);
+    token3 = new Token3(6);
+    token4 = new Token4(6);
     sadapter = new UniswapAdapterForStables();
 
     uniPair = new UniswapV2Pair(address(token0), address(token1));
     uniPair2 = new UniswapV2Pair(address(token1), address(token2));
     uniPair3 = new UniswapV2Pair(address(token0), address(token2));
+    uniPair4 = new UniswapV2Pair(address(token3), address(token4));
 
     rewards = new StakingRewards();
     address vat = address(new VatMock());
@@ -133,6 +168,9 @@ contract RewardTest is DSTest {
     join = new GemJoinWithReward(vat, "testilk", address(uniPair), address(rewards));
     join2 = new GemJoinWithReward(vat, "testilk2", address(uniPair2), address(rewards));
     join3 = new GemJoinWithReward(vat, "testilk3", address(uniPair3), address(rewards));
+    join4 = new GemJoinWithReward(vat, "testilk4", address(uniPair4), address(rewards));
+
+    gov.mint(address(rewards), totalRewards);
 
     hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);//get hevm instance
   }
@@ -227,6 +265,12 @@ contract RewardTest is DSTest {
     j.gem().approve(address(j), l);
     j.join(address(this), l);
   }
+
+  function joinHelperOwner(GemJoinWithReward j, uint l, address owner) public {
+    j.gem().approve(address(j), l);
+    j.join(owner, l);
+  }
+
 
   function testUniAdapter() public {
     uint v = 10000;
@@ -541,5 +585,128 @@ contract RewardTest is DSTest {
 
   }
 
+  function rewardForTwoUsers(uint value1, uint value2, uint amntMult, uint expectEarned1, uint expectEarned2, int err) public {
+
+    uint starttime = 10;
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(join3));
+    rewards.registerPairDesc(address(uniPair4), address(sadapter), 1, address(join4));
+
+    uniPair3.approve(address(rewards));
+    uniPair4.approve(address(rewards));
+
+
+
+    uint uniPair3Amnt = addLiquidityCore(value1, token0, token2, uniPair3);
+    uint uniPair4Amnt = addLiquidityCore(value2, token3, token4, uniPair4);
+    uniPair3.transfer(address(user1), uniPair3Amnt);
+    uniPair4.transfer(address(user2), uniPair4Amnt);
+
+    assertEqM(uniPair3Amnt/uniPair4Amnt, amntMult, "uniPair3Amnt/uniPair4Amnt");
+    assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(user1)), "uniPair3Amnt");
+    assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(user2)), "uniPair4Amnt");
+
+    hevm.warp(starttime+1);
+
+    user1.joinHelper(join3, uniPair3Amnt, address(this));
+    user2.joinHelper(join4, uniPair4Amnt, address(this));
+
+    assertEqM(0, uniPair3.balanceOf(address(user1)), "uniPair3Amnt 0");
+    assertEqM(0, uniPair4.balanceOf(address(user2)), "uniPair4Amnt 0");
+
+    assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3");
+    assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4");
+
+
+    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3), false), "uniPair3Amnt value");
+    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4), false), "uniPair4Amnt value");
+
+    assertEqM(rewards.earned(address(user1)), 0, "rewardReadyOnStart1 is 0");
+    assertEqM(rewards.earned(address(user2)), 0, "rewardReadyOnStart2 is 0");
+
+    hevm.warp(starttime+rewardDuration/2+1);
+
+    uint earned1 = rewards.earned(address(user1));
+    uint earned2 = rewards.earned(address(user2));
+    assertEqM(earned1, expectEarned1, "rewardReadyOnHL1 is 1/4");
+    assertEqM(earned2, expectEarned2, "rewardReadyOnHL2 is 1/4");
+    assertEqM(uint(int256(earned1+earned2)+err), totalRewards/2, "tot rewardReadyOnHL2 is 1/2");
+
+    assertEqM(0, gov.balanceOf(address(user1)), "gov1 bal zero");
+    assertEqM(0, gov.balanceOf(address(user2)), "gov2 bal zero");
+
+    assertEqM(totalRewards, gov.balanceOf(address(rewards)), "gov rewards bal full");
+
+    assertEqM(earned1, user1.getReward(rewards), "getReward1");
+    assertEqM(earned2, user2.getReward(rewards), "getReward2");
+
+    assertEqM(rewards.earned(address(user1)), 0, "earned1 0 after claim");
+    assertEqM(rewards.earned(address(user1)), 0, "earned2 0 after claim");
+
+    assertEqM(earned1, gov.balanceOf(address(user1)), "gov1 bal");
+    assertEqM(earned2, gov.balanceOf(address(user2)), "gov2 bal");
+
+    assertEqM(totalRewards-(earned1+earned2), gov.balanceOf(address(rewards)), "gov rewards bal was spent");
+
+    user1.exit(join3, uniPair3Amnt);
+
+    assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(user1)), "uniPair3Amnt user1 exit");
+    assertEqM(0, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3 exit");
+
+    hevm.warp(starttime+rewardDuration*2); //to the future
+
+    uint earned1f = rewards.earned(address(user1));
+    uint earned2f = rewards.earned(address(user2));
+    assertEqM(earned1f, 0, "rewardReadyInFuture1 is 0");
+    assertEqM(earned2f/totalRewardsMul+1, (totalRewards-(earned1+earned2))/totalRewardsMul, "rewardReadyInFuture2 is remain");
+
+    assertEqM(0, user1.getReward(rewards), "getReward1f is 0");
+    assertEqM(earned2f, user2.getReward(rewards), "getReward2 is remain");
+
+    assertEqM(earned1, gov.balanceOf(address(user1)), "gov1f bal");
+    assertEqM(earned2+earned2f, gov.balanceOf(address(user2)), "gov2f bal");
+
+    assertEqM(totalRewards-(earned1+earned2+earned2f), gov.balanceOf(address(rewards)), "gov rewards bal near 0");
+    assertEqM(gov.balanceOf(address(rewards))/totalRewardsMul, 1, "gov rewards bal is 1");
+
+    assertEqM(0, user1.getReward(rewards), "getReward1ff is 0");
+    assertEqM(0, user2.getReward(rewards), "getReward2ff is 0");
+
+    assertEqM(rewards.earned(address(user1)), 0, "earned1f 0 after claim");
+    assertEqM(rewards.earned(address(user1)), 0, "earned2f 0 after claim");
+
+    assertEqM(earned1, gov.balanceOf(address(user1)), "gov1f bal");
+    assertEqM(earned2+earned2f, gov.balanceOf(address(user2)), "gov2f bal");
+
+    hevm.warp(starttime+rewardDuration*3); //to the future x3
+
+    assertEqM(rewards.earned(address(user1)), 0, "earned1fff 0");
+    assertEqM(rewards.earned(address(user1)), 0, "earned2fff 0");
+
+    assertEqM(0, user1.getReward(rewards), "getReward1fff is 0");
+    assertEqM(0, user2.getReward(rewards), "getReward2fff is 0");
+
+    assertEqM(earned1, gov.balanceOf(address(user1)), "gov1fff bal");
+    assertEqM(earned2+earned2f, gov.balanceOf(address(user2)), "gov2fff bal");
+
+    user2.exit(join4, uniPair4Amnt);
+
+    assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(user2)), "uniPair4Amnt user1 exit");
+    assertEqM(0, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join3 exit");
+
+    assertEqM(rewards.earned(address(user1)), 0, "earned1fff 0");
+    assertEqM(rewards.earned(address(user1)), 0, "earned2fff 0");
+
+    assertEqM(0, user1.getReward(rewards), "getReward1fff is 0");
+    assertEqM(0, user2.getReward(rewards), "getReward2fff is 0");
+  }
+
+  function testRewardIsBasedOnUSDEquityNotTokenAmnt() public {
+    rewardForTwoUsers(10000, 10000, 1000000000000000, totalRewards/4, totalRewards/4, 0);
+  }
+
+  function testRewardIsBasedOnUSDEquityDifferentUsers() public {
+    rewardForTwoUsers(10000, 20000, 500000000000000, 16666666666666666666666, 33333333333333333333333, 1);
+  }
 
 }
