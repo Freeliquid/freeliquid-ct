@@ -240,7 +240,7 @@ contract RewardTest is DSTest {
   }
 
   function prepareRewarder(uint256 starttime) public {
-    rewards.initialize(address(gov), rewardDuration, totalRewards, starttime, false);
+    rewards.initialize(address(gov), rewardDuration, totalRewards, starttime);
   }
 
   function testInitialize() public {
@@ -744,4 +744,123 @@ contract RewardTest is DSTest {
   function testRewardIsBasedOnUSDEquityDifferentUsersClaimInvariant() public {
     rewardForTwoUsers(10000, 20000, 500000000000000, 16666666666666666666666, 33333333333333333333333, 1, true);
   }
+
+  function checkFairDistribution(uint mode, bool fairDistributionEnabled) public {
+
+    uint starttime = 10;
+    uint value1 = 50000;
+    uint value2 = 50000;
+
+    if (mode == 1) {
+      value1 = 50001;
+    } else if (mode == 2) {
+      value2 = 50001;
+    }
+
+    if (!fairDistributionEnabled) {
+      value1 = 160001;
+      value2 = 160001;
+    }
+
+    uint256 fairDistributionTime = 60;
+    prepareRewarder(starttime);
+
+    if (fairDistributionEnabled) {
+      rewards.setupFairDistribution(100000, fairDistributionTime);
+    }
+
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(join3));
+    rewards.registerPairDesc(address(uniPair4), address(sadapter), 1, address(join4));
+
+    uniPair3.approve(address(rewards));
+    uniPair4.approve(address(rewards));
+
+
+
+    uint uniPair3Amnt = addLiquidityCore(value1, token0, token2, uniPair3);
+    uint uniPair4Amnt = addLiquidityCore(value2, token3, token4, uniPair4);
+    uniPair3.transfer(address(user1), uniPair3Amnt);
+    uniPair4.transfer(address(user2), uniPair4Amnt);
+
+    assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(user1)), "uniPair3Amnt");
+    assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(user2)), "uniPair4Amnt");
+
+    hevm.warp(starttime+1);
+
+    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3), false), "uniPair3Amnt value");
+    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4), false), "uniPair4Amnt value");
+
+    if (mode == 1) {
+      (bool ret, ) = address(user1).call(abi.encodeWithSelector(user1.joinHelper.selector, join3, uniPair3Amnt, address(this)));
+      if (ret) {
+        emit log_bytes32("user1.joinHelper fail expected");
+        fail();
+      }
+
+      assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(user1)), "uniPair3Amnt");
+      assertEqM(0, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3 0");
+
+    } else {
+      user1.joinHelper(join3, uniPair3Amnt, address(this));
+
+      assertEqM(0, uniPair3.balanceOf(address(user1)), "uniPair3Amnt 0");
+      assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3");
+    }
+
+    if (mode == 2) {
+      (bool ret, ) = address(user2).call(abi.encodeWithSelector(user2.joinHelper.selector, join4, uniPair4Amnt, address(this)));
+      if (ret) {
+        emit log_bytes32("user2.joinHelper fail expected");
+        fail();
+      }
+
+      assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(user2)), "uniPair4Amnt");
+      assertEqM(0, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4 0");
+
+    } else {
+      user2.joinHelper(join4, uniPair4Amnt, address(this));
+
+      assertEqM(0, uniPair4.balanceOf(address(user2)), "uniPair4Amnt 0");
+      assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4");
+    }
+
+    hevm.warp(starttime+fairDistributionTime+1);
+
+    if (mode == 1) {
+      user1.joinHelper(join3, uniPair3Amnt, address(this));
+      assertEqM(0, uniPair3.balanceOf(address(user1)), "uniPair3Amnt 0");
+      assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3");
+    }
+
+    if (mode == 2) {
+      user2.joinHelper(join4, uniPair4Amnt, address(this));
+      assertEqM(0, uniPair4.balanceOf(address(user2)), "uniPair4Amnt 0");
+      assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4");
+    }
+
+    user1.exit(join3, uniPair3Amnt);
+    assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(user1)), "uniPair3Amnt");
+    assertEqM(0, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3 0");
+
+    user2.exit(join4, uniPair4Amnt);
+    assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(user2)), "uniPair4Amnt");
+    assertEqM(0, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4 0");
+  }
+
+  function testFairDistribution0() public {
+    checkFairDistribution(0, true);
+  }
+
+  function testFairDistribution1() public {
+    checkFairDistribution(1, true);
+  }
+
+  function testFairDistribution2() public {
+    checkFairDistribution(2, true);
+  }
+
+  function testFairDistributionDisabled() public {
+    checkFairDistribution(0, false);
+  }
+
 }

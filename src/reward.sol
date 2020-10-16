@@ -477,7 +477,9 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
     uint256 public totalRewards = 0;
-    bool public fairDistribution;
+    bool public fairDistribution = false;
+    uint256 public fairDistributionMaxValue = 0;
+    uint256 public fairDistributionTime = 0;
     address public deployer;
 
     mapping(address => uint256) public userRewardPerTokenPaid;
@@ -503,7 +505,7 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         deployer = msg.sender;
     }
 
-    function initialize(address _gov, uint256 _duration, uint256 _initreward, uint256 _starttime, bool _fairDistribution) public initializer {
+    function initialize(address _gov, uint256 _duration, uint256 _initreward, uint256 _starttime) public initializer {
         // only deployer can initialize
         require(deployer == msg.sender);
 
@@ -511,8 +513,17 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
 
         duration = _duration;
         starttime = _starttime;
-        fairDistribution = _fairDistribution;
         initRewardAmount(_initreward);
+    }
+
+    function setupFairDistribution(uint256 _fairDistributionMaxValue, uint256 _fairDistributionTime) public {
+        // only deployer can initialize
+        require(deployer == msg.sender);
+        require(fairDistribution == false);
+
+        fairDistribution = true;
+        fairDistributionMaxValue = _fairDistributionMaxValue;
+        fairDistributionTime = _fairDistributionTime;
     }
 
     function registerPairDesc(address gem, address adapter, uint factor, address staker) public {
@@ -559,8 +570,7 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         emit Staked(usr, gem, amount);
 
         if (fairDistribution) {
-            // require amount below 50k for first 24 hours
-            require(balanceOf(usr) <= 50000 * uint(10) ** IERC20(gem).decimals() || block.timestamp >= starttime.add(24*60*60));
+            require(balanceOf(usr) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime));
         }
     }
 
