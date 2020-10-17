@@ -570,7 +570,8 @@ contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
         emit Staked(usr, gem, amount);
 
         if (fairDistribution) {
-            require(balanceOf(usr) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime));
+            require(balanceOf(usr) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime),
+                    "Fair-distribution-limit");
         }
     }
 
