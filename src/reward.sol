@@ -335,26 +335,6 @@ library SafeERC20 {
     }
 }
 
-// File: contracts/IRewardDistributionRecipient.sol
-
-
-
-
-contract IRewardDistributionRecipient is Ownable {
-    address rewardDistribution;
-
-    modifier onlyRewardDistribution() {
-        require(_msgSender() == rewardDistribution, "Caller is not reward distribution");
-        _;
-    }
-
-    function setRewardDistribution(address _rewardDistribution)
-        external
-        onlyOwner
-    {
-        rewardDistribution = _rewardDistribution;
-    }
-}
 
 
 /**
@@ -466,7 +446,7 @@ contract LPTokenWrapper is Initializable {
 
 
 
-contract StakingRewards is LPTokenWrapper, IRewardDistributionRecipient {
+contract StakingRewards is LPTokenWrapper {
     address public gov;
     uint256 public duration;
 
