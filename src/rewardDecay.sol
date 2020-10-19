@@ -26,6 +26,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
 	}
 
 	uint constant EPOCHCOUNT = 52;
+	uint epochInited = 0;
 	EpochData[EPOCHCOUNT] public epochs;
 
 	mapping(address => uint256) public lastClaimedEpoch;
@@ -33,7 +34,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
 	uint256 public currentEpoch;
 
 
-    event RewardAdded(uint256 reward);
+    event RewardAdded(uint256 reward, uint256 epoch, uint256 duration, uint256 starttime);
     event StopRewarding();
     event Staked(address indexed user, address indexed gem, uint256 amount);
     event Withdrawn(address indexed user, address indexed gem, uint256 amount);
@@ -50,14 +51,16 @@ contract StakingRewardsDecay is LPTokenWrapper {
         require(deployer == msg.sender);
 
         gov = _gov;
+
     }
 
     modifier checkStart(){
         require(block.timestamp > epochs[0].starttime, "not start");
+        require(epochInited == EPOCHCOUNT, "not all epochs was inited");
         _;
     }
 
-    function initRewardAmount(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) internal
+    function initRewardAmount(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) public
     {
     	require(deployer == msg.sender);
     	require(idx < EPOCHCOUNT);
@@ -66,16 +69,21 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     	EpochData storage epoch = epochs[idx];
 
+    	if (epoch.starttime == 0) {
+        	epochInited = epochInited.add(1);
+        }
         epoch.rewardPerTokenStored = 0;
     	epoch.starttime = starttime;
     	epoch.duration = duration;
         epoch.rewardRate = reward.div(duration);
         require(epoch.rewardRate > 0);
 
+
         epoch.initreward = reward;
         epoch.lastUpdateTime = starttime;
         epoch.periodFinish = starttime.add(duration);
-        emit RewardAdded(reward);
+
+        emit RewardAdded(reward, idx, duration, starttime);
     }
 
     modifier updateCurrentEpoch() {
