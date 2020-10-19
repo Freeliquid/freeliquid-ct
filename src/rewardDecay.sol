@@ -25,9 +25,9 @@ contract StakingRewardsDecay is LPTokenWrapper {
 	    bool closed;
 	}
 
-	uint constant EPOCHCOUNT = 52;
+	uint EPOCHCOUNT = 0;
 	uint epochInited = 0;
-	EpochData[EPOCHCOUNT] public epochs;
+	EpochData[] public epochs;
 
 	mapping(address => uint256) public lastClaimedEpoch;
 	mapping(address => uint256) yetNotClaimedOldEpochRewards;
@@ -46,16 +46,21 @@ contract StakingRewardsDecay is LPTokenWrapper {
         deployer = msg.sender;
     }
 
-    function initialize(address _gov) public initializer {
+    function initialize(address _gov, uint epochCount) public initializer {
         // only deployer can initialize
         require(deployer == msg.sender);
 
         gov = _gov;
 
+        EPOCHCOUNT = epochCount;
+        EpochData memory data;
+        for (uint i =0; i<epochCount; i++) {
+        	epochs.push(data);
+        }
     }
 
     modifier checkStart(){
-        require(block.timestamp > epochs[0].starttime, "not start");
+        require(block.timestamp >= epochs[0].starttime, "not start");
         require(epochInited == EPOCHCOUNT, "not all epochs was inited");
         _;
     }
@@ -69,9 +74,6 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     	EpochData storage epoch = epochs[idx];
 
-    	if (epoch.starttime == 0) {
-        	epochInited = epochInited.add(1);
-        }
         epoch.rewardPerTokenStored = 0;
     	epoch.starttime = starttime;
     	epoch.duration = duration;
@@ -84,6 +86,18 @@ contract StakingRewardsDecay is LPTokenWrapper {
         epoch.periodFinish = starttime.add(duration);
 
         emit RewardAdded(reward, idx, duration, starttime);
+    }
+
+    function approveEpochsConsistency() public {
+    	require(deployer == msg.sender);
+
+    	for (uint i=1; i < EPOCHCOUNT; i++) {
+    		EpochData storage epoch = epochs[i];
+    		require(epoch.starttime > 0);
+    		require(epoch.starttime == epochs[i-1].periodFinish);
+    	}
+
+		epochInited = EPOCHCOUNT;
     }
 
     modifier updateCurrentEpoch() {
