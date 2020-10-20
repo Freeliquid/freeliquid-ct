@@ -101,10 +101,17 @@ contract StakingRewardsDecay is LPTokenWrapper {
 		epochInited = EPOCHCOUNT;
     }
 
-    modifier updateCurrentEpoch() {
-    	for (uint i=currentEpoch; i < EPOCHCOUNT && epochs[i].periodFinish < block.timestamp; i++) {
-    		currentEpoch = i;
+    function calcCurrentEpoch() public view returns (uint res){
+    	res = 0;
+    	for (uint i=currentEpoch; i < EPOCHCOUNT && epochs[i].starttime <= block.timestamp; i++) {
+    		res = i;
     	}
+    }
+
+
+    modifier updateCurrentEpoch() {
+
+    	currentEpoch = calcCurrentEpoch();
 
     	uint supply = totalSupply();
         epochs[currentEpoch].lastTotalSupply = supply;
@@ -139,8 +146,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
         return Math.min(block.timestamp, epoch.periodFinish);
     }
 
-    function rewardPerToken(EpochData storage epoch) internal view returns (uint256) {
-        if (epoch.lastTotalSupply == 0) {
+    function rewardPerToken(EpochData storage epoch, uint256 lastTotalSupply) internal view returns (uint256) {
+        if (lastTotalSupply == 0) {
             return epoch.rewardPerTokenStored;
         }
         return
@@ -149,28 +156,42 @@ contract StakingRewardsDecay is LPTokenWrapper {
                     .sub(epoch.lastUpdateTime)
                     .mul(epoch.rewardRate)
                     .mul(1e18)
-                    .div(epoch.lastTotalSupply)
+                    .div(lastTotalSupply)
             );
     }
 
-    function earnedEpoch(address account, EpochData storage epoch) internal view returns (uint256) {
+    function earnedEpoch(address account,
+    					 EpochData storage epoch,
+    					 uint256 lastTotalSupply) internal view returns (uint256)
+    {
         return
             balanceOf(account)
-                .mul(rewardPerToken(epoch).sub(epoch.userRewardPerTokenPaid[account]))
+                .mul(rewardPerToken(epoch, lastTotalSupply).sub(epoch.userRewardPerTokenPaid[account]))
                 .div(1e18)
                 .add(epoch.rewards[account]);
     }
 
 
     function earned(address account) public view returns (uint256 acc) {
-    	for (uint i=lastClaimedEpoch[account]; i<=currentEpoch; i++) {
-    		acc = acc.add(earnedEpoch(account, epochs[i]));
-    	}
+
+    	uint currentSupply = totalSupply();
+    	int lastClaimedEpochIdx = int(lastClaimedEpoch[account]);
+
+        for (int i=int(calcCurrentEpoch()); i>=lastClaimedEpochIdx; i--) {
+        	EpochData storage epoch = epochs[uint(i)];
+
+        	uint epochTotalSupply = currentSupply;
+        	if (epoch.closed) {
+        		epochTotalSupply = epoch.lastTotalSupply;
+        	}
+        	acc = acc.add(earnedEpoch(account, epoch, epochTotalSupply));
+        }
+
     	acc = acc.add(yetNotClaimedOldEpochRewards[account]);
     }
 
     function getRewardEpoch(address account, EpochData storage epoch) internal updateReward(account, epoch) returns (uint256) {
-        uint256 reward = earnedEpoch(account, epoch);
+        uint256 reward = earnedEpoch(account, epoch, epoch.lastTotalSupply);
         if (reward > 0) {
             epoch.rewards[account] = 0;
             return reward;
@@ -246,9 +267,9 @@ contract StakingRewardsDecay is LPTokenWrapper {
     modifier updateReward(address account, EpochData storage epoch) {
         assert (account != address(0));
 
-        epoch.rewardPerTokenStored = rewardPerToken(epoch);
+        epoch.rewardPerTokenStored = rewardPerToken(epoch, epoch.lastTotalSupply);
         epoch.lastUpdateTime = lastTimeRewardApplicable(epoch);
-        epoch.rewards[account] = earnedEpoch(account, epoch);
+        epoch.rewards[account] = earnedEpoch(account, epoch, epoch.lastTotalSupply);
         epoch.userRewardPerTokenPaid[account] = epoch.rewardPerTokenStored;
         _;
     }

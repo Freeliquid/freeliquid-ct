@@ -56,9 +56,11 @@ contract RewardDecayTest is TestBase {
     uint rewardStep = 1000;
     uint timeStep = 1000;
     uint reward = rewardStep;
+    uint allTime = 0;
     for (uint i=0; i<n; i++) {
       if (i != skipEpoch) {
         rewards.initRewardAmount(reward, starttime, timeStep, i);
+        allTime += timeStep;
         totalRewards += reward;
 
         reward += rewardStep;
@@ -70,7 +72,7 @@ contract RewardDecayTest is TestBase {
 
     gov.mint(address(rewards), totalRewards);
 
-    return starttime + timeStep;
+    return allTime;
   }
 
   function testSkipEpochInitialize() public {
@@ -161,8 +163,10 @@ contract RewardDecayTest is TestBase {
 
   function testBase() public {
     uint starttime = 10;
-    uint finishTime = prepareRewarder3(starttime, 10);
+
+    uint allTime = prepareRewarder3(starttime, 10);
     bool ret = false;
+
 
     rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
 
@@ -188,10 +192,12 @@ contract RewardDecayTest is TestBase {
 
     assertEq(rewards.earned(address(user1)), 0);
 
-    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
 
+    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
     user1.stake(rewards, uniPair3, uniAmnt);
+
     assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal I");
+
 
     (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, uniAmnt));
     if (ret) {
@@ -208,6 +214,7 @@ contract RewardDecayTest is TestBase {
     }
 
 
+
     assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal II");
     assertEqM(rewards.balanceOf(address(user2)), 0, "rewards user2 bal I");
 
@@ -222,10 +229,22 @@ contract RewardDecayTest is TestBase {
       emit log_bytes32("withdraw fail expected");
       fail();
     }
-
     assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal III");
 
-    hevm.warp(starttime+finishTime+1);
+
+    hevm.warp(starttime+allTime/2+1);
+    assertEqM(allTime/2, 1500, "allTime/2==1500");
+
+    assertEqM(rewards.balanceOf(address(user1)), 2*value1, "u1 rewards.balanceOf hl2");
+
+    assertEqM(rewards.calcCurrentEpoch(), 1, "rewards.calcCurrentEpoch 1");
+    assertEqM(rewards.earned(address(user1)), 2001, "u1 earned hl2");
+    // assertEqM(user1.getReward(rewards), totalRewards/2-1, "u1 getReward hl2");
+
+
+
+    hevm.warp(starttime+allTime+1);
+
 
     user1.withdraw(rewards, uniPair3, uniAmnt);
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
