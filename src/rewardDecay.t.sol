@@ -160,8 +160,15 @@ contract RewardDecayTest is TestBase {
     return addLiquidityToUser(value, user, uniPair2);
   }
 
+  function testBase1() public {
+    baseImpl(true);
+  }
 
-  function testBase() public {
+  function testBase2() public {
+    baseImpl(false);
+  }
+
+  function baseImpl(bool getRewardOnHL2) public {
     uint starttime = 10;
 
     uint allTime = prepareRewarder3(starttime, 10);
@@ -238,8 +245,11 @@ contract RewardDecayTest is TestBase {
     assertEqM(rewards.balanceOf(address(user1)), 2*value1, "u1 rewards.balanceOf hl2");
 
     assertEqM(rewards.calcCurrentEpoch(), 1, "rewards.calcCurrentEpoch 1");
-    assertEqM(rewards.earned(address(user1)), 2001, "u1 earned hl2");
-    // assertEqM(user1.getReward(rewards), totalRewards/2-1, "u1 getReward hl2");
+    uint rewardHL2 = 2001;
+    assertEqM(rewards.earned(address(user1)), rewardHL2, "u1 earned on hl2");
+
+    if (getRewardOnHL2)
+      assertEqM(user1.getReward(rewards), rewardHL2, "u1 getReward hl2");
 
 
 
@@ -252,14 +262,15 @@ contract RewardDecayTest is TestBase {
 
     assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 2");
 
-    assertEq(rewards.earned(address(user1)), totalRewards-1);
+
+    assertEq(rewards.earned(address(user1)), totalRewards-1 - (getRewardOnHL2 ? rewardHL2 : 0));
     assertEq(rewards.earned(address(user2)), 0);
 
-    assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 b");
+    assertEqM(gov.balanceOf(address(user1)), getRewardOnHL2 ? rewardHL2 : 0, "gov bal u1 b");
     assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 b");
-    assertEqM(gov.balanceOf(address(rewards)), totalRewards, "gov bal r b");
+    assertEqM(gov.balanceOf(address(rewards)), totalRewards - (getRewardOnHL2 ? rewardHL2 : 0), "gov bal r b");
 
-    assertEqM(user1.getReward(rewards), totalRewards-1, "getReward u1");
+    assertEqM(user1.getReward(rewards), totalRewards-1-(getRewardOnHL2 ? rewardHL2 : 0), "getReward u1");
 
     assertEqM(gov.balanceOf(address(user1)), totalRewards-1, "gov bal u1 a");
     assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 a");
