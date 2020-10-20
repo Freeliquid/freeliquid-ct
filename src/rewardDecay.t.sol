@@ -152,13 +152,6 @@ contract RewardDecayTest is TestBase {
     return uniAmnt;
   }
 
-  function addLiquidityUni3ToUser(uint value, User user) public returns (uint) {
-    return addLiquidityToUser(value, user, uniPair3);
-  }
-
-  function addLiquidityUni2ToUser(uint value, User user) public returns (uint) {
-    return addLiquidityToUser(value, user, uniPair2);
-  }
 
   function testBase1() public {
     baseImpl(true);
@@ -172,10 +165,9 @@ contract RewardDecayTest is TestBase {
     uint starttime = 10;
 
     uint allTime = prepareRewarder3(starttime, 10);
-    bool ret = false;
-
 
     rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, address(this));
 
     assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 1");
 
@@ -186,16 +178,13 @@ contract RewardDecayTest is TestBase {
     uint value1 = 10000;
     uint value2 = 12000;
 
-    uint uniAmnt = addLiquidityUni3ToUser(value1, user1);
+    uint uniAmnt = addLiquidityToUser(value1, user1, uniPair3);
 
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal");
 
-    (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, uniAmnt));
-    if (ret) {
-      emit log_bytes32("user2.stake expected");
-      fail();
-    }
+    assertFail(address(user2), abi.encodeWithSelector(user2.stake.selector, rewards, uniPair3, uniAmnt),
+               "user2.stake fail expected");
 
     assertEq(rewards.earned(address(user1)), 0);
 
@@ -206,21 +195,15 @@ contract RewardDecayTest is TestBase {
     assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal I");
 
 
-    (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, uniAmnt));
-    if (ret) {
-      emit log_bytes32("user2.stake fail expected");
-      fail();
-    }
-
-    uint uniAmnt2 = addLiquidityUni2ToUser(value2, user2);
-
-    (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, 1));
-    if (ret) {
-      emit log_bytes32("user2.stake fail II expected");
-      fail();
-    }
+    assertFail(address(user2), abi.encodeWithSelector(user2.stake.selector, rewards, uniPair3, uniAmnt),
+              "user2.stake fail expected");
 
 
+    uint uniAmnt2 = addLiquidityToUser(value2, user2, uniPair2);
+    assertEqM(uniAmnt2, 120000000000000000000, "uniAmnt2");
+
+    assertFail(address(user2), abi.encodeWithSelector(user2.stake.selector, rewards, uniPair3, uniAmnt2/2),
+              "user2.stake fail II expected");
 
     assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal II");
     assertEqM(rewards.balanceOf(address(user2)), 0, "rewards user2 bal I");
@@ -231,11 +214,9 @@ contract RewardDecayTest is TestBase {
     assertEqM(uniPair3.balanceOf(address(user2)), 0, "user2 bal2 0");
     assertEqM(uniPair2.balanceOf(address(user2)), uniAmnt2, "user2 bal");
 
-    (ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.withdraw.selector, uniAmnt, address(uniPair3)));
-    if (ret) {
-      emit log_bytes32("withdraw fail expected");
-      fail();
-    }
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.withdraw.selector, uniAmnt, address(uniPair3)),
+              "withdraw fail expected");
+
     assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal III");
 
 

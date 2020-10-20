@@ -160,4 +160,17 @@ contract TestBase is DSTest {
           fail();
       }
   }
+
+
+	function assertFail(address c, bytes memory call, bytes32 m) internal {
+
+		(bool ret, ) = c.call(call);
+		if (m.length > 0 && m[0] == "!") {
+			ret = !ret;
+		}
+		if (ret) {
+			emit log_bytes32(m);
+			fail();
+		}
+	}
 }
