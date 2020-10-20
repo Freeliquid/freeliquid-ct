@@ -25,7 +25,7 @@ contract User {
     rewards.withdraw(amount, address(gem));
   }
 
-  function getReward(StakingRewards rewards) public returns (uint256) {
+  function getReward(StakingRewardsDecay rewards) public returns (uint256) {
     return rewards.getReward();
   }
 }
@@ -38,8 +38,7 @@ contract RewardDecayTest is TestBase {
   User user2;
 
   uint constant totalRewardsMul =  1e18;
-  uint totalRewards =   100000*totalRewardsMul;
-  uint rewardDuration = 1000000;
+  uint totalRewards;
 
   function setUp() public {
     super.setUp();
@@ -48,8 +47,6 @@ contract RewardDecayTest is TestBase {
     user2 = new User();
 
     rewards = new StakingRewardsDecay();
-
-    gov.mint(address(rewards), totalRewards);
   }
 
 
@@ -62,6 +59,7 @@ contract RewardDecayTest is TestBase {
     for (uint i=0; i<n; i++) {
       if (i != skipEpoch) {
         rewards.initRewardAmount(reward, starttime, timeStep, i);
+        totalRewards += reward;
 
         reward += rewardStep;
         starttime += timeStep;
@@ -69,6 +67,8 @@ contract RewardDecayTest is TestBase {
     }
 
     rewards.approveEpochsConsistency();
+
+    gov.mint(address(rewards), totalRewards);
 
     return starttime + timeStep;
   }
@@ -129,6 +129,7 @@ contract RewardDecayTest is TestBase {
     assertEq(factor, 0);
 
     hevm.warp(starttime+1);
+    assertEq(rewards.earned(address(this)), 0);
     assertEq(rewards.getReward(), 0 );
   }
 
@@ -153,11 +154,15 @@ contract RewardDecayTest is TestBase {
     return addLiquidityToUser(value, user, uniPair3);
   }
 
+  function addLiquidityUni2ToUser(uint value, User user) public returns (uint) {
+    return addLiquidityToUser(value, user, uniPair2);
+  }
 
 
   function testBase() public {
     uint starttime = 10;
     uint finishTime = prepareRewarder3(starttime, 10);
+    bool ret = false;
 
     rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
 
@@ -167,17 +172,52 @@ contract RewardDecayTest is TestBase {
 
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 I");
 
-    uint uniAmnt = addLiquidityUni3ToUser(10000, user1);
+    uint value1 = 10000;
+    uint value2 = 12000;
+
+    uint uniAmnt = addLiquidityUni3ToUser(value1, user1);
 
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal");
 
+    (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, uniAmnt));
+    if (ret) {
+      emit log_bytes32("user2.stake expected");
+      fail();
+    }
+
+    assertEq(rewards.earned(address(user1)), 0);
+
+    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
+
     user1.stake(rewards, uniPair3, uniAmnt);
+    assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal I");
+
+    (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, uniAmnt));
+    if (ret) {
+      emit log_bytes32("user2.stake fail expected");
+      fail();
+    }
+
+    uint uniAmnt2 = addLiquidityUni2ToUser(value2, user2);
+
+    (ret, ) = address(user2).call(abi.encodeWithSelector(user2.stake.selector, uniPair3, 1));
+    if (ret) {
+      emit log_bytes32("user2.stake fail II expected");
+      fail();
+    }
+
+
+    assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal II");
+    assertEqM(rewards.balanceOf(address(user2)), 0, "rewards user2 bal I");
+
 
     assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal");
     assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal 0");
+    assertEqM(uniPair3.balanceOf(address(user2)), 0, "user2 bal2 0");
+    assertEqM(uniPair2.balanceOf(address(user2)), uniAmnt2, "user2 bal");
 
-    (bool ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.withdraw.selector, uniAmnt, address(uniPair3)));
+    (ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.withdraw.selector, uniAmnt, address(uniPair3)));
     if (ret) {
       emit log_bytes32("withdraw fail expected");
       fail();
@@ -192,6 +232,19 @@ contract RewardDecayTest is TestBase {
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user bal uniAmnt");
 
     assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 2");
+
+    assertEq(rewards.earned(address(user1)), totalRewards-1);
+    assertEq(rewards.earned(address(user2)), 0);
+
+    assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 b");
+    assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 b");
+    assertEqM(gov.balanceOf(address(rewards)), totalRewards, "gov bal r b");
+
+    assertEqM(user1.getReward(rewards), totalRewards-1, "getReward u1");
+
+    assertEqM(gov.balanceOf(address(user1)), totalRewards-1, "gov bal u1 a");
+    assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 a");
+    assertEqM(gov.balanceOf(address(rewards)), 1, "gov bal r a");
   }
 
 

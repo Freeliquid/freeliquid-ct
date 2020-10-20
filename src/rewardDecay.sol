@@ -67,6 +67,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function initRewardAmount(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) public
     {
+    	require(epochInited == 0, "not allowed after approve");
     	require(deployer == msg.sender);
     	require(idx < EPOCHCOUNT);
     	require(duration > 0);
@@ -231,7 +232,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
     {
     	acc = takeStockReward(msg.sender);
 
-    	acc.add(yetNotClaimedOldEpochRewards[msg.sender]);
+    	acc = acc.add(yetNotClaimedOldEpochRewards[msg.sender]);
     	yetNotClaimedOldEpochRewards[msg.sender] = 0;
 
     	if (acc > 0) {
