@@ -89,6 +89,18 @@ contract VatMock {
 contract User {
   bytes32 body;
 
+  function approve(UniswapV2Pair gem, address other, uint amount) public {
+    gem.approve(other, amount);
+  }
+
+  function stake(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
+    gem.approve(address(rewards), amount);
+    rewards.stake(amount, address(gem));
+  }
+
+  function withdraw(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
+    rewards.withdraw(amount, address(gem));
+  }
 
   function getReward(StakingRewards rewards) public returns (uint256) {
     return rewards.getReward();
@@ -189,7 +201,7 @@ contract RewardDecayTest is DSTest {
   }
 
 
-  function prepareRewarder3(uint256 starttime, uint skipEpoch) public {
+  function prepareRewarder3(uint256 starttime, uint skipEpoch) public returns (uint){
     uint n = 3;
     rewards.initialize(address(gov), n);
     uint rewardStep = 1000;
@@ -205,6 +217,8 @@ contract RewardDecayTest is DSTest {
     }
 
     rewards.approveEpochsConsistency();
+
+    return starttime + timeStep;
   }
 
   function testSkipEpochInitialize() public {
@@ -267,10 +281,65 @@ contract RewardDecayTest is DSTest {
   }
 
 
+
+  function addLiquidityToUser(uint value, User user, UniswapV2Pair pair) public returns (uint) {
+
+    uint myBal = pair.balanceOf(address(this));
+
+    uint uniAmnt = addLiquidityCore(value, DSToken(pair.token0()), DSToken(pair.token1()), pair);
+    assertTrue(uniAmnt > 0);
+    uint bal = pair.balanceOf(address(user));
+    pair.transfer(address(user), uniAmnt);
+
+    assertEqM(uniAmnt+bal, pair.balanceOf(address(user)), "addLtu uniAmnt");
+    assertEqM(myBal, pair.balanceOf(address(this)), "addLtu this uniAmnt");
+
+    return uniAmnt;
+  }
+
+  function addLiquidityUni3ToUser(uint value, User user) public returns (uint) {
+    return addLiquidityToUser(value, user, uniPair3);
+  }
+
+
+
   function testBase() public {
     uint starttime = 10;
-    prepareRewarder3(starttime, 10);
+    uint finishTime = prepareRewarder3(starttime, 10);
 
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
+
+    assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 1");
+
+    hevm.warp(starttime+1);
+
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 I");
+
+    uint uniAmnt = addLiquidityUni3ToUser(10000, user1);
+
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal");
+
+    user1.stake(rewards, uniPair3, uniAmnt);
+
+    assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal");
+    assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal 0");
+
+    (bool ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.withdraw.selector, uniAmnt, address(uniPair3)));
+    if (ret) {
+      emit log_bytes32("withdraw fail expected");
+      fail();
+    }
+
+    assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal III");
+
+    hevm.warp(starttime+finishTime+1);
+
+    user1.withdraw(rewards, uniPair3, uniAmnt);
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user bal uniAmnt");
+
+    assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 2");
   }
 
 

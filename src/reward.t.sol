@@ -610,8 +610,8 @@ contract RewardTest is DSTest {
     assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4");
 
 
-    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3), false), "uniPair3Amnt value");
-    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4), false), "uniPair4Amnt value");
+    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3)), "uniPair3Amnt value");
+    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
 
     assertEqM(rewards.earned(address(user1)), 0, "rewardReadyOnStart1 is 0");
     assertEqM(rewards.earned(address(user2)), 0, "rewardReadyOnStart2 is 0");
@@ -773,8 +773,8 @@ contract RewardTest is DSTest {
 
     hevm.warp(starttime+1);
 
-    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3), false), "uniPair3Amnt value");
-    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4), false), "uniPair4Amnt value");
+    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3)), "uniPair3Amnt value");
+    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
 
     if (mode == 1) {
       (bool ret, ) = address(user1).call(abi.encodeWithSelector(user1.joinHelper.selector, join3, uniPair3Amnt, address(this)));

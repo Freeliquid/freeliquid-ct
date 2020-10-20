@@ -198,25 +198,28 @@ contract StakingRewardsDecay is LPTokenWrapper {
     // stake visibility is public as overriding LPTokenWrapper's stake() function
     function stakeEpoch(uint256 amount, address gem, address usr, EpochData storage epoch) internal updateReward(usr, epoch) {
         gatherOldEpochReward(usr);
-        super.stake(amount, gem, usr);
+        stakeLp(amount, gem, usr);
         emit Staked(usr, gem, amount);
     }
 
-    function stake(uint256 amount, address gem, address usr) public checkStart updateCurrentEpoch {
+    function stake(uint256 amount, address gem) public checkStart updateCurrentEpoch {
         require(amount > 0, "Cannot stake 0");
-        stakeEpoch(amount, gem, usr, epochs[currentEpoch]);
+        stakeEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
+		IERC20(gem).safeTransferFrom(msg.sender, address(this), amount);
     }
 
 
     function withdrawEpoch(uint256 amount, address gem, address usr, EpochData storage epoch) internal updateReward(usr, epoch) {
     	gatherOldEpochReward(usr);
-        super.withdraw(amount, gem, usr);
+        withdrawLp(amount, gem, usr);
         emit Withdrawn(usr, gem, amount);
     }
 
-    function withdraw(uint256 amount, address gem, address usr) public checkStart updateCurrentEpoch {
+    function withdraw(uint256 amount, address gem) public checkStart updateCurrentEpoch {
         require(amount > 0, "Cannot withdraw 0");
-        withdrawEpoch(amount, gem, usr, epochs[currentEpoch]);
+        withdrawEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
+
+        IERC20(gem).safeTransfer(msg.sender, amount);
     }
 
 
