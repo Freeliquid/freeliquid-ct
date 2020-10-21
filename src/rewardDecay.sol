@@ -1,6 +1,6 @@
 pragma solidity ^0.5.12;
 
-import "./reward.sol";
+import "./lpTokenWrapper.sol";
 
 
 contract StakingRewardsDecay is LPTokenWrapper {
