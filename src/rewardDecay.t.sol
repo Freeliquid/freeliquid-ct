@@ -50,11 +50,9 @@ contract RewardDecayTest is TestBase {
   }
 
 
-  function prepareRewarder3(uint256 starttime, uint skipEpoch) public returns (uint){
-    uint n = 3;
+  function prepareRewarder(uint n, uint starttime, uint rewardStep, uint timeStep, uint skipEpoch) public returns (uint) {
     rewards.initialize(address(gov), n);
-    uint rewardStep = 1000;
-    uint timeStep = 1000;
+    totalRewards = 0;
     uint reward = rewardStep;
     uint allTime = 0;
     for (uint i=0; i<n; i++) {
@@ -73,6 +71,13 @@ contract RewardDecayTest is TestBase {
     gov.mint(address(rewards), totalRewards);
 
     return allTime;
+  }
+
+  function prepareRewarder3(uint256 starttime, uint skipEpoch) public returns (uint) {
+    uint n = 3;
+    uint rewardStep = 1000;
+    uint timeStep = 1000;
+    return prepareRewarder(n, starttime, rewardStep, timeStep, skipEpoch);
   }
 
   function testSkipEpochInitialize() public {
@@ -263,7 +268,6 @@ contract RewardDecayTest is TestBase {
 
     hevm.warp(starttime+allTime+1);
 
-    emit log_bytes32("------");
 
     user1.withdraw(rewards, uniPair3, uniAmnt);
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
@@ -305,5 +309,50 @@ contract RewardDecayTest is TestBase {
     }
   }
 
+  function testTime1() public returns (uint) {
+    uint n = 90;
+    uint timeStep = 3600*24;
+    uint rewardStep = 1000000000;
+    uint starttime = 10;
+    uint skipEpoch = uint(-1);
+    uint allTime = prepareRewarder(n, starttime, rewardStep, timeStep, skipEpoch);
+    assertEqM(allTime, timeStep*n, "allTime==timeStep*n");
+
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
+
+    uint border=2;
+
+    uint value1 = 10000;
+    uint uniAmnt = addLiquidityToUser(value1, user1, uniPair3);
+
+    bool needStake = true;
+
+    for (uint shift=0; shift<2; shift++) {
+      // emit log_bytes32("------");
+      for (uint e=0; e<n+2; e++) {
+        uint epochCenter = timeStep*e+starttime+shift;
+
+        uint start = epochCenter-border;
+        if (start < starttime)
+          start = starttime;
+
+        for (uint i=start; i<epochCenter+border; i++) {
+          hevm.warp(i);
+
+          // emit log_named_uint("  e", e);
+          // emit log_named_uint("  t", i);
+
+          if (needStake) {
+            user1.stake(rewards, uniPair3, uniAmnt);
+
+          } else {
+            user1.withdraw(rewards, uniPair3, uniAmnt);
+          }
+          needStake = !needStake;
+
+        }
+      }
+    }
+  }
 
 }
