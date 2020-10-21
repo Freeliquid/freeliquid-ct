@@ -1,6 +1,7 @@
 
 import numpy as np
 import pandas as pd
+from datetime import datetime
 
 from matplotlib.dates import DateFormatter, MonthLocator, YearLocator
 
@@ -88,14 +89,14 @@ def integral_data(stop, step):
     return df.i
 
 
-def d_analize(targetCirculate = 500000, digits=6):
+def d_analize(targetCirculate, days, name, stepDays, digits=6):
     panes = 3
     fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 10))
 
 
-    step = 3600*24*30
-    hoursInYear = 365*24
-    stop = 1*hoursInYear*3600
+    step = 3600*24*stepDays
+    hoursInDistribution = days*24
+    stop = 1*hoursInDistribution*3600
 
     integralOnStop = integral(stop, stop)
 
@@ -116,7 +117,7 @@ def d_analize(targetCirculate = 500000, digits=6):
     df["i"] =  integral_data(stop, step) * starty / (10**digits)
 
 
-    startUnixTime = 1602973840
+    startUnixTime = datetime.utcnow().timestamp()
     df["dt"] = pd.to_datetime(df.index+startUnixTime, unit="s")
     df = df.set_index("dt")
 
@@ -125,37 +126,34 @@ def d_analize(targetCirculate = 500000, digits=6):
     df = df.resample('1d').last().fillna(method='ffill')
     print(df)
 
-    for ax in axs:
-        month = MonthLocator()
-        year = YearLocator()
-        fmt1 = DateFormatter('%Y')
-        fmt2 = DateFormatter('%b')
-        ax.xaxis.set_major_locator(year)
-        ax.xaxis.set_major_formatter(fmt1)
-        ax.xaxis.set_minor_locator(month)
-        ax.xaxis.set_minor_formatter(fmt2)
+    # for ax in axs:
+    #     month = MonthLocator()
+    #     year = YearLocator()
+    #     fmt1 = DateFormatter('%Y')
+    #     fmt2 = DateFormatter('%b')
+    #     ax.xaxis.set_major_locator(year)
+    #     ax.xaxis.set_major_formatter(fmt1)
+    #     ax.xaxis.set_minor_locator(month)
+    #     ax.xaxis.set_minor_formatter(fmt2)
+
+    x_compat=False
 
 
-
-        ax.grid(True, which='major', axis='x')
-
-
-
-
-    df.perHour.plot(ax=axs[0], color="red", x_compat=True)
-    df.s.plot(ax=axs[1], color="red", lw=3, x_compat=True)
-    df.i.plot(ax=axs[1], color="blue", x_compat=True)
-    (df.i-df.s).plot(ax=axs[2], color="blue", x_compat=True)
+    df.perHour.plot(ax=axs[0], color="red", x_compat=x_compat)
+    df.s.plot(ax=axs[1], color="red", lw=3, x_compat=x_compat)
+    df.i.plot(ax=axs[1], color="blue", x_compat=x_compat)
+    (df.i-df.s).plot(ax=axs[2], color="blue", x_compat=x_compat)
 
     for ax in axs:
         ax.axhline(y=0, lw=1.0)
         ax.axvline(x=pd.to_datetime(stop+startUnixTime, unit="s"), lw=1.0)
 
-    plt.savefig("res.png", dpi=300)
+    plt.savefig(name+".png", dpi=300)
     plt.close()
 
 
 if __name__ == "__main__":
     # sq_analize()
-    d_analize()
+    d_analize(targetCirculate=500000, days=365, stepDays=7, name="lowrisk")
+    d_analize(targetCirculate=400000, days=90, stepDays=2, name="hirisk")
 
