@@ -103,7 +103,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
     	epoch.starttime = starttime;
     	epoch.duration = duration;
         epoch.rewardRate = reward.div(duration);
-        require(epoch.rewardRate > 0);
+        require(epoch.rewardRate > 0, "zero rewardRate");
 
 
         epoch.initreward = reward;
