@@ -309,14 +309,50 @@ contract RewardDecayTest is TestBase {
     }
   }
 
-  function testTime1() public returns (uint) {
-    uint n = 90;
+  struct TestTimeVars {
+    uint e;
+    uint n;
+    uint i;
+    uint epochCenter;
+  }
+
+  function checkCurrentEpoch(TestTimeVars memory vars) internal {
+
+    uint currentEpoch = rewards.currentEpoch();
+
+    if (vars.e >= vars.n) {
+      assertEqM(currentEpoch, vars.n-1, "currentEpoch n-1");
+    } else if (vars.e > 0) {
+
+      if (vars.i >= vars.epochCenter) {
+        assertEqM(currentEpoch, vars.e, "currentEpoch");
+      } else {
+        assertEqM(currentEpoch, vars.e-1, "currentEpoch-1");
+      }
+    } else {
+        assertEqM(currentEpoch, 0, "currentEpoch-1 e0");
+    }
+  }
+
+  function testTime0() public {
+    time1Impl(0);
+  }
+
+  function testTime1() public {
+    time1Impl(1);
+  }
+
+
+  function time1Impl(uint shift) public {
+
+    TestTimeVars memory vars;
+    vars.n = 90;
     uint timeStep = 3600*24;
     uint rewardStep = 1000000000;
     uint starttime = 10;
     uint skipEpoch = uint(-1);
-    uint allTime = prepareRewarder(n, starttime, rewardStep, timeStep, skipEpoch);
-    assertEqM(allTime, timeStep*n, "allTime==timeStep*n");
+    uint allTime = prepareRewarder(vars.n, starttime, rewardStep, timeStep, skipEpoch);
+    assertEqM(allTime, timeStep*vars.n, "allTime==timeStep*n");
 
     rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
 
@@ -327,30 +363,35 @@ contract RewardDecayTest is TestBase {
 
     bool needStake = true;
 
-    for (uint shift=0; shift<2; shift++) {
-      // emit log_bytes32("------");
-      for (uint e=0; e<n+2; e++) {
-        uint epochCenter = timeStep*e+starttime+shift;
+    for (vars.e = 0; vars.e<vars.n+2; vars.e++) {
 
-        uint start = epochCenter-border;
-        if (start < starttime)
-          start = starttime;
+      vars.epochCenter = timeStep*vars.e+starttime;
 
-        for (uint i=start; i<epochCenter+border; i++) {
-          hevm.warp(i);
+      uint start = vars.epochCenter-border;
+      if (start < starttime)
+        start = starttime;
 
-          // emit log_named_uint("  e", e);
-          // emit log_named_uint("  t", i);
+      for (vars.i=start; vars.i<vars.epochCenter+border; vars.i++) {
+        hevm.warp(vars.i);
 
+        // emit log_named_uint("  e", vars.e);
+        // emit log_named_uint("  t", vars.i);
+        // emit log_named_uint("  needStake", needStake?1:0);
+        // emit log_named_uint("  shift", shift);
+
+        if (shift == 0) {
           if (needStake) {
             user1.stake(rewards, uniPair3, uniAmnt);
-
           } else {
             user1.withdraw(rewards, uniPair3, uniAmnt);
           }
           needStake = !needStake;
 
+          checkCurrentEpoch(vars);
         }
+
+        if (shift > 0)
+          shift--;
       }
     }
   }
