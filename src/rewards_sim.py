@@ -104,7 +104,7 @@ def d_analize(targetCirculate, days, name, stepDays, digits=18):
 
     starty = int(targetCirculate*(10**digits)/integralOnStop)
 
-    print("start reward", starty)
+    print("start reward", starty, "step", step)
     df = get_data(stop, step, starty)
     df = df.set_index("x")
 
