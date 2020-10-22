@@ -113,6 +113,18 @@ contract StakingRewardsDecay is LPTokenWrapper {
         emit RewardAdded(reward, idx, duration, starttime);
     }
 
+    function getEpochRewardRate(uint epochIdx) public view returns (uint) {
+    	return epochs[epochIdx].rewardRate;
+    }
+
+    function getEpochStartTime(uint epochIdx) public view returns (uint) {
+    	return epochs[epochIdx].starttime;
+    }
+
+    function getEpochFinishTime(uint epochIdx) public view returns (uint) {
+    	return epochs[epochIdx].periodFinish;
+    }
+
     function approveEpochsConsistency() public {
     	require(deployer == msg.sender);
 

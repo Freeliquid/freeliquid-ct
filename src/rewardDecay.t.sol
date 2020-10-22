@@ -363,6 +363,10 @@ contract RewardDecayTest is TestBase {
 
     bool needStake = true;
 
+    uint accReward = 0;
+    uint lastStakeTime = 0;
+    uint rewardRate;
+
     for (vars.e = 0; vars.e<vars.n+2; vars.e++) {
 
       vars.epochCenter = timeStep*vars.e+starttime;
@@ -382,8 +386,13 @@ contract RewardDecayTest is TestBase {
         if (shift == 0) {
           if (needStake) {
             user1.stake(rewards, uniPair3, uniAmnt);
+            lastStakeTime = vars.i;
+            rewardRate = vars.i < allTime+starttime ? rewards.getEpochRewardRate(rewards.calcCurrentEpoch()) : 0;
+
           } else {
             user1.withdraw(rewards, uniPair3, uniAmnt);
+            assertTrue(vars.i > lastStakeTime);
+            accReward += rewardRate * (vars.i - lastStakeTime);
           }
           needStake = !needStake;
 
@@ -394,6 +403,8 @@ contract RewardDecayTest is TestBase {
           shift--;
       }
     }
+
+    assertEqM(user1.getReward(rewards), accReward, "getRewards");
   }
 
 }
