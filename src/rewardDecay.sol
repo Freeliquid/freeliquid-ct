@@ -119,18 +119,22 @@ contract StakingRewardsDecay is LPTokenWrapper {
         emit RewardAdded(reward, idx, duration, starttime);
     }
 
-    function initAllEpochs(uint256[] memory rewards, uint256[] memory starttimes, uint256[] memory durations) public
+    function initAllEpochs(uint256[] memory rewards, uint256 starttime, uint256 duration) public
     {
     	// only deployer can
     	require(deployer == msg.sender);
     	require(epochInited == 0, "not allowed after approve");
 
+    	require(duration > 0);
+    	require(starttime > 0);
+
     	require(rewards.length == EPOCHCOUNT);
-    	require(starttimes.length == EPOCHCOUNT);
-    	require(durations.length == EPOCHCOUNT);
+
+    	uint time = starttime;
 
     	for (uint i=0; i < EPOCHCOUNT; i++) {
-    		initEpoch(rewards[i], starttimes[i], durations[i], i);
+    		initEpoch(rewards[i], time, duration, i);
+    		time = time.add(duration);
     	}
 
     	approveEpochsConsistency();

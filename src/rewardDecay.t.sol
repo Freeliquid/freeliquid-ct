@@ -62,22 +62,18 @@ contract RewardDecayTest is TestBase {
       assertTrue(skipEpoch == uint(-1));
 
       uint256[] memory rewardsArr = new uint256[](n);
-      uint256[] memory starttimesArr = new uint256[](n);
-      uint256[] memory durationsArr = new uint256[](n);
 
       for (uint i=0; i<n; i++) {
 
         rewardsArr[i] = reward;
-        starttimesArr[i] = starttime;
-        durationsArr[i] = timeStep;
-
-        allTime += timeStep;
         totalRewards += reward;
 
+        allTime += timeStep;
+
         reward += rewardStep;
-        starttime += timeStep;
       }
-      rewards.initAllEpochs(rewardsArr, starttimesArr, durationsArr);
+
+      rewards.initAllEpochs(rewardsArr, starttime, timeStep);
     }
     else {
       for (uint i=0; i<n; i++) {
