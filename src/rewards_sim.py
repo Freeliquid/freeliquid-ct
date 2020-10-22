@@ -5,6 +5,8 @@ from datetime import datetime
 
 from matplotlib.dates import DateFormatter, MonthLocator, YearLocator
 
+import functools
+
 import math
 
 import matplotlib
@@ -89,7 +91,7 @@ def integral_data(stop, step):
     return df.i
 
 
-def d_analize(targetCirculate, days, name, stepDays, digits=6):
+def d_analize(targetCirculate, days, name, stepDays, digits=18):
     panes = 3
     fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 10))
 
@@ -101,14 +103,13 @@ def d_analize(targetCirculate, days, name, stepDays, digits=6):
     integralOnStop = integral(stop, stop)
 
     starty = int(targetCirculate*(10**digits)/integralOnStop)
-    # starty = 100
-    print("starty", starty)
+
+    print("start reward", starty)
     df = get_data(stop, step, starty)
     df = df.set_index("x")
 
     df["s"] = (df.y*step).cumsum()/(10**digits)
 
-    # aproxIntegral = (df.y*step).sum()/(10**digits)
     aproxIntegral = df.s.iloc[-1]
     print(aproxIntegral, "circulateErr", aproxIntegral-targetCirculate)
     print("integral", starty*integralOnStop/(10**digits), starty*integral(0, stop))
@@ -123,8 +124,8 @@ def d_analize(targetCirculate, days, name, stepDays, digits=6):
 
     df["perHour"] = df.y * 3600 / (10**digits)
 
-    df = df.resample('1d').last().fillna(method='ffill')
-    print(df)
+    df = df.resample(str(stepDays)+"d").last().fillna(method='ffill')
+    # print(df)
 
     # for ax in axs:
     #     month = MonthLocator()
@@ -144,10 +145,25 @@ def d_analize(targetCirculate, days, name, stepDays, digits=6):
     df.i.plot(ax=axs[1], color="blue", x_compat=x_compat)
     (df.i-df.s).plot(ax=axs[2], color="blue", x_compat=x_compat)
 
+    distrib = pd.DataFrame(df.i.diff().shift(-1).fillna(targetCirculate-df.i.iloc[-1]))
+    distrib["ut"] = distrib.index.astype("int")//1000000000
+    # print(distrib)
+    # distrib["rr"] = (distrib.i * (10**digits)).astype("int64")
+
+    prec=9
+    rint = (distrib.i * (10**prec)).astype("int64")
+    rint = [x*(10**(digits-prec)) for x in rint.to_list()]
+
+    print(rint)
+
+    print("total", functools.reduce(lambda x, y: x + y, rint))
+
     for ax in axs:
         ax.axhline(y=0, lw=1.0)
         ax.axvline(x=pd.to_datetime(stop+startUnixTime, unit="s"), lw=1.0)
 
+    distrib.to_csv(name+"_distrib.csv")
+    df.to_csv(name+".csv")
     plt.savefig(name+".png", dpi=300)
     plt.close()
 
