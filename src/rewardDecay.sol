@@ -179,8 +179,9 @@ contract StakingRewardsDecay is LPTokenWrapper {
     	require(deployer == msg.sender);
     	require(epochInited == 0, "double call not allowed");
 
-    	uint totalReward = 0;
+    	uint totalReward = epochs[0].initreward;
     	require(epochs[0].starttime > 0);
+
     	for (uint i=1; i < EPOCHCOUNT; i++) {
     		EpochData storage epoch = epochs[i];
     		require(epoch.starttime > 0);
