@@ -75,6 +75,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
         require(deployer == msg.sender);
 
         gov = _gov;
+        require(gov != address(0));
+        require(epochCount > 0);
 
         EPOCHCOUNT = epochCount;
         EpochData memory data;
