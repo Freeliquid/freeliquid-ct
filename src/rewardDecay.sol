@@ -152,16 +152,41 @@ contract StakingRewardsDecay is LPTokenWrapper {
     	return epochs[epochIdx].periodFinish;
     }
 
+    function getTotalRewards() public view returns (uint result) {
+    	require(epochInited == EPOCHCOUNT, "not inited");
+
+    	result = 0;
+
+    	for (uint i=0; i < EPOCHCOUNT; i++) {
+    		result = result.add(epochs[i].initreward);
+    	}
+    }
+
+    function getTotalRewardTime() public view returns (uint result) {
+    	require(epochInited == EPOCHCOUNT, "not inited");
+
+    	result = 0;
+
+    	for (uint i=0; i < EPOCHCOUNT; i++) {
+    		result = result.add(epochs[i].duration);
+    	}
+    }
+
+
     function approveEpochsConsistency() public {
     	require(deployer == msg.sender);
     	require(epochInited == 0, "double call not allowed");
 
+    	uint totalReward = 0;
     	require(epochs[0].starttime > 0);
     	for (uint i=1; i < EPOCHCOUNT; i++) {
     		EpochData storage epoch = epochs[i];
     		require(epoch.starttime > 0);
     		require(epoch.starttime == epochs[i-1].periodFinish);
+    		totalReward = totalReward.add(epoch.initreward);
     	}
+
+    	require(IERC20(gov).balanceOf(address(this)) >= totalReward, "GOV balance not enought");
 
 		epochInited = EPOCHCOUNT;
     }
