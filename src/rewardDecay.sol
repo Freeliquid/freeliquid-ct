@@ -91,8 +91,14 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function initRewardAmount(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) public
     {
-    	require(epochInited == 0, "not allowed after approve");
+    	// only deployer can
     	require(deployer == msg.sender);
+    	require(epochInited == 0, "not allowed after approve");
+    	initEpoch(reward, starttime, duration, idx);
+    }
+
+    function initEpoch(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) internal
+    {
     	require(idx < EPOCHCOUNT);
     	require(duration > 0);
     	require(starttime > 0);
@@ -113,6 +119,23 @@ contract StakingRewardsDecay is LPTokenWrapper {
         emit RewardAdded(reward, idx, duration, starttime);
     }
 
+    function initAllEpochs(uint256[] memory rewards, uint256[] memory starttimes, uint256[] memory durations) public
+    {
+    	// only deployer can
+    	require(deployer == msg.sender);
+    	require(epochInited == 0, "not allowed after approve");
+
+    	require(rewards.length == EPOCHCOUNT);
+    	require(starttimes.length == EPOCHCOUNT);
+    	require(durations.length == EPOCHCOUNT);
+
+    	for (uint i=0; i < EPOCHCOUNT; i++) {
+    		initEpoch(rewards[i], starttimes[i], durations[i], i);
+    	}
+
+    	approveEpochsConsistency();
+    }
+
     function getEpochRewardRate(uint epochIdx) public view returns (uint) {
     	return epochs[epochIdx].rewardRate;
     }
@@ -127,7 +150,9 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function approveEpochsConsistency() public {
     	require(deployer == msg.sender);
+    	require(epochInited == 0, "double call not allowed");
 
+    	require(epochs[0].starttime > 0);
     	for (uint i=1; i < EPOCHCOUNT; i++) {
     		EpochData storage epoch = epochs[i];
     		require(epoch.starttime > 0);

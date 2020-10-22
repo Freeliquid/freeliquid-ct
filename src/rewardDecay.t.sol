@@ -39,6 +39,7 @@ contract RewardDecayTest is TestBase {
 
   uint constant totalRewardsMul =  1e18;
   uint totalRewards;
+  bool vectorizedInit = false;
 
   function setUp() public {
     super.setUp();
@@ -55,18 +56,44 @@ contract RewardDecayTest is TestBase {
     totalRewards = 0;
     uint reward = rewardStep;
     uint allTime = 0;
-    for (uint i=0; i<n; i++) {
-      if (i != skipEpoch) {
-        rewards.initRewardAmount(reward, starttime, timeStep, i);
+
+    if (vectorizedInit) {
+
+      assertTrue(skipEpoch == uint(-1));
+
+      uint256[] memory rewardsArr = new uint256[](n);
+      uint256[] memory starttimesArr = new uint256[](n);
+      uint256[] memory durationsArr = new uint256[](n);
+
+      for (uint i=0; i<n; i++) {
+
+        rewardsArr[i] = reward;
+        starttimesArr[i] = starttime;
+        durationsArr[i] = timeStep;
+
         allTime += timeStep;
         totalRewards += reward;
 
         reward += rewardStep;
         starttime += timeStep;
       }
+      rewards.initAllEpochs(rewardsArr, starttimesArr, durationsArr);
+    }
+    else {
+      for (uint i=0; i<n; i++) {
+
+        if (i != skipEpoch) {
+          rewards.initRewardAmount(reward, starttime, timeStep, i);
+          allTime += timeStep;
+          totalRewards += reward;
+
+          reward += rewardStep;
+          starttime += timeStep;
+        }
+      }
+      rewards.approveEpochsConsistency();
     }
 
-    rewards.approveEpochsConsistency();
 
     gov.mint(address(rewards), totalRewards);
 
@@ -335,15 +362,19 @@ contract RewardDecayTest is TestBase {
   }
 
   function testTime0() public {
-    time1Impl(0);
+    timeImpl(0);
   }
 
   function testTime1() public {
-    time1Impl(1);
+    timeImpl(1);
   }
 
+  function testTime0Vec() public {
+    vectorizedInit = true;
+    timeImpl(0);
+  }
 
-  function time1Impl(uint shift) public {
+  function timeImpl(uint shift) public {
 
     TestTimeVars memory vars;
     vars.n = 90;
