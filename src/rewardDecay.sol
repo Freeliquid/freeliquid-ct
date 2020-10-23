@@ -130,7 +130,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
     	require(duration > 0);
     	require(starttime > 0);
 
-    	require(rewards.length == EPOCHCOUNT);
+    	assert(rewards.length == EPOCHCOUNT);
 
     	uint time = starttime;
 
