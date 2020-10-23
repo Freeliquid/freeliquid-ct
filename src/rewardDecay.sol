@@ -49,8 +49,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
 	    bool closed;
 	}
 
-	uint EPOCHCOUNT = 0;
-	uint epochInited = 0;
+	uint public EPOCHCOUNT = 0;
+	uint public epochInited = 0;
 	EpochData[] public epochs;
 
 	mapping(address => uint256) public lastClaimedEpoch;
