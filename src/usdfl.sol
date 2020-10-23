@@ -17,7 +17,7 @@ pragma solidity >=0.5.12;
 
 import "./lib.sol";
 
-contract USDL is LibNote {
+contract USDFL is LibNote {
     // --- Auth ---
     mapping (address => uint) public wards;
     function rely(address guy) external note auth { wards[guy] = 1; }
@@ -28,8 +28,8 @@ contract USDL is LibNote {
     }
 
     // --- ERC20 Data ---
-    string  public constant name     = "USDLiquidity";
-    string  public constant symbol   = "USDL";
+    string  public constant name     = "USDFreeLiquidity";
+    string  public constant symbol   = "USDFL";
     string  public constant version  = "1";
     uint8   public constant decimals = 18;
     uint256 public totalSupply;
@@ -141,9 +141,9 @@ contract USDL is LibNote {
 }
 
 
-contract USDLFab {
-    function newDai(uint chainId) public returns (USDL dai) {
-        dai = new USDL(chainId);
+contract USDFLFab {
+    function newDai(uint chainId) public returns (USDFL dai) {
+        dai = new USDFL(chainId);
         dai.rely(msg.sender);
         dai.deny(address(this));
     }
