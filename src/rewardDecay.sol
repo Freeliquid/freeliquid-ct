@@ -138,8 +138,6 @@ contract StakingRewardsDecay is LPTokenWrapper {
     		initEpoch(rewards[i], time, duration, i);
     		time = time.add(duration);
     	}
-
-    	approveEpochsConsistency();
     }
 
     function getEpochRewardRate(uint epochIdx) public view returns (uint) {

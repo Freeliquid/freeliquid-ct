@@ -73,7 +73,6 @@ contract RewardDecayTest is TestBase {
         reward += rewardStep;
       }
 
-      gov.mint(address(rewards), totalRewards);
       rewards.initAllEpochs(rewardsArr, starttime, timeStep);
     }
     else {
@@ -88,10 +87,10 @@ contract RewardDecayTest is TestBase {
           starttime += timeStep;
         }
       }
-
-      gov.mint(address(rewards), totalRewards);
-      rewards.approveEpochsConsistency();
     }
+
+    gov.mint(address(rewards), totalRewards);
+    rewards.approveEpochsConsistency();
 
     assertEqM(rewards.getTotalRewardTime(), allTime, "getTotalRewardTime");
     assertEqM(rewards.getTotalRewards(), totalRewards, "getTotalRewards");
