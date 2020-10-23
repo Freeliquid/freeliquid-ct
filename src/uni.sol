@@ -41,3 +41,17 @@ contract UniswapAdapterForStables is IAdapter {
         return value.mul(totalValue).mul(factor).div(supply);
     }
 }
+
+
+contract SimpleAdapter is IAdapter {
+    using SafeMath for uint;
+
+    struct TokenPair {
+        address t0;
+        address t1;
+    }
+
+    function calc(address /*gem*/, uint value, uint factor) external view returns (uint) {
+        return value.mul(factor);
+    }
+}
