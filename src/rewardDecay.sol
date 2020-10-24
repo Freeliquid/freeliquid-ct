@@ -34,31 +34,31 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
 
     struct EpochData {
-	    mapping(address => uint256) userRewardPerTokenPaid;
-	    mapping(address => uint256) rewards;
+        mapping(address => uint256) userRewardPerTokenPaid;
+        mapping(address => uint256) rewards;
 
-	    uint256 initreward;
-    	uint256 duration;
-	    uint256 starttime;
-	    uint256 periodFinish;
-	    uint256 rewardRate;
-	    uint256 lastUpdateTime;
-	    uint256 rewardPerTokenStored;
-	    uint256 lastTotalSupply;
+        uint256 initreward;
+        uint256 duration;
+        uint256 starttime;
+        uint256 periodFinish;
+        uint256 rewardRate;
+        uint256 lastUpdateTime;
+        uint256 rewardPerTokenStored;
+        uint256 lastTotalSupply;
 
-	    bool closed;
-	}
+        bool closed;
+    }
 
 
-	mapping(address => mapping(address => uint256)) amounts;
+    mapping(address => mapping(address => uint256)) amounts;
 
-	uint public EPOCHCOUNT = 0;
-	uint public epochInited = 0;
-	EpochData[] public epochs;
+    uint public EPOCHCOUNT = 0;
+    uint public epochInited = 0;
+    EpochData[] public epochs;
 
-	mapping(address => uint256) public lastClaimedEpoch;
-	mapping(address => uint256) yetNotClaimedOldEpochRewards;
-	uint256 public currentEpoch;
+    mapping(address => uint256) public lastClaimedEpoch;
+    mapping(address => uint256) yetNotClaimedOldEpochRewards;
+    uint256 public currentEpoch;
 
 
     event RewardAdded(uint256 reward, uint256 epoch, uint256 duration, uint256 starttime);
@@ -84,7 +84,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
         EPOCHCOUNT = epochCount;
         EpochData memory data;
         for (uint i =0; i<epochCount; i++) {
-        	epochs.push(data);
+            epochs.push(data);
         }
     }
 
@@ -96,23 +96,23 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function initRewardAmount(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) public
     {
-    	// only deployer can
-    	require(deployer == msg.sender);
-    	require(epochInited == 0, "not allowed after approve");
-    	initEpoch(reward, starttime, duration, idx);
+        // only deployer can
+        require(deployer == msg.sender);
+        require(epochInited == 0, "not allowed after approve");
+        initEpoch(reward, starttime, duration, idx);
     }
 
     function initEpoch(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) internal
     {
-    	require(idx < EPOCHCOUNT);
-    	require(duration > 0);
-    	require(starttime > 0);
+        require(idx < EPOCHCOUNT);
+        require(duration > 0);
+        require(starttime > 0);
 
-    	EpochData storage epoch = epochs[idx];
+        EpochData storage epoch = epochs[idx];
 
         epoch.rewardPerTokenStored = 0;
-    	epoch.starttime = starttime;
-    	epoch.duration = duration;
+        epoch.starttime = starttime;
+        epoch.duration = duration;
         epoch.rewardRate = reward.div(duration);
         require(epoch.rewardRate > 0, "zero rewardRate");
 
@@ -126,98 +126,98 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function initAllEpochs(uint256[] memory rewards, uint256 starttime, uint256 duration) public
     {
-    	// only deployer can
-    	require(deployer == msg.sender);
-    	require(epochInited == 0, "not allowed after approve");
+        // only deployer can
+        require(deployer == msg.sender);
+        require(epochInited == 0, "not allowed after approve");
 
-    	require(duration > 0);
-    	require(starttime > 0);
+        require(duration > 0);
+        require(starttime > 0);
 
-    	assert(rewards.length == EPOCHCOUNT);
+        assert(rewards.length == EPOCHCOUNT);
 
-    	uint time = starttime;
+        uint time = starttime;
 
-    	for (uint i=0; i < EPOCHCOUNT; i++) {
-    		initEpoch(rewards[i], time, duration, i);
-    		time = time.add(duration);
-    	}
+        for (uint i=0; i < EPOCHCOUNT; i++) {
+            initEpoch(rewards[i], time, duration, i);
+            time = time.add(duration);
+        }
     }
 
     function getEpochRewardRate(uint epochIdx) public view returns (uint) {
-    	return epochs[epochIdx].rewardRate;
+        return epochs[epochIdx].rewardRate;
     }
 
     function getEpochStartTime(uint epochIdx) public view returns (uint) {
-    	return epochs[epochIdx].starttime;
+        return epochs[epochIdx].starttime;
     }
 
     function getEpochFinishTime(uint epochIdx) public view returns (uint) {
-    	return epochs[epochIdx].periodFinish;
+        return epochs[epochIdx].periodFinish;
     }
 
     function getTotalRewards() public view returns (uint result) {
-    	require(epochInited == EPOCHCOUNT, "not inited");
+        require(epochInited == EPOCHCOUNT, "not inited");
 
-    	result = 0;
+        result = 0;
 
-    	for (uint i=0; i < EPOCHCOUNT; i++) {
-    		result = result.add(epochs[i].initreward);
-    	}
+        for (uint i=0; i < EPOCHCOUNT; i++) {
+            result = result.add(epochs[i].initreward);
+        }
     }
 
     function getTotalRewardTime() public view returns (uint result) {
-    	require(epochInited == EPOCHCOUNT, "not inited");
+        require(epochInited == EPOCHCOUNT, "not inited");
 
-    	result = 0;
+        result = 0;
 
-    	for (uint i=0; i < EPOCHCOUNT; i++) {
-    		result = result.add(epochs[i].duration);
-    	}
+        for (uint i=0; i < EPOCHCOUNT; i++) {
+            result = result.add(epochs[i].duration);
+        }
     }
 
 
     function approveEpochsConsistency() public {
-    	require(deployer == msg.sender);
-    	require(epochInited == 0, "double call not allowed");
+        require(deployer == msg.sender);
+        require(epochInited == 0, "double call not allowed");
 
-    	uint totalReward = epochs[0].initreward;
-    	require(epochs[0].starttime > 0);
+        uint totalReward = epochs[0].initreward;
+        require(epochs[0].starttime > 0);
 
-    	for (uint i=1; i < EPOCHCOUNT; i++) {
-    		EpochData storage epoch = epochs[i];
-    		require(epoch.starttime > 0);
-    		require(epoch.starttime == epochs[i-1].periodFinish);
-    		totalReward = totalReward.add(epoch.initreward);
-    	}
+        for (uint i=1; i < EPOCHCOUNT; i++) {
+            EpochData storage epoch = epochs[i];
+            require(epoch.starttime > 0);
+            require(epoch.starttime == epochs[i-1].periodFinish);
+            totalReward = totalReward.add(epoch.initreward);
+        }
 
-    	require(IERC20(gov).balanceOf(address(this)) >= totalReward, "GOV balance not enought");
+        require(IERC20(gov).balanceOf(address(this)) >= totalReward, "GOV balance not enought");
 
-		epochInited = EPOCHCOUNT;
+        epochInited = EPOCHCOUNT;
     }
 
     function calcCurrentEpoch() public view returns (uint res){
-    	res = 0;
-    	for (uint i=currentEpoch; i < EPOCHCOUNT && epochs[i].starttime <= block.timestamp; i++) {
-    		res = i;
-    	}
+        res = 0;
+        for (uint i=currentEpoch; i < EPOCHCOUNT && epochs[i].starttime <= block.timestamp; i++) {
+            res = i;
+        }
     }
 
 
     modifier updateCurrentEpoch() {
 
-    	currentEpoch = calcCurrentEpoch();
+        currentEpoch = calcCurrentEpoch();
 
-    	uint supply = totalSupply();
+        uint supply = totalSupply();
         epochs[currentEpoch].lastTotalSupply = supply;
 
         for (int i=int(currentEpoch)-1; i>=0; i--) {
-        	EpochData storage epoch = epochs[uint(i)];
-        	if (epoch.closed) {
-        		break;
-        	}
+            EpochData storage epoch = epochs[uint(i)];
+            if (epoch.closed) {
+                break;
+            }
 
-        	epoch.lastTotalSupply = supply;
-        	epoch.closed = true;
+            epoch.lastTotalSupply = supply;
+            epoch.closed = true;
         }
 
         _;
@@ -236,7 +236,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
 
     function lastTimeRewardApplicable(EpochData storage epoch) internal view returns (uint256) {
-    	assert(block.timestamp >= epoch.starttime);
+        assert(block.timestamp >= epoch.starttime);
         return Math.min(block.timestamp, epoch.periodFinish);
     }
 
@@ -255,8 +255,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
     }
 
     function earnedEpoch(address account,
-    					 EpochData storage epoch,
-    					 uint256 lastTotalSupply) internal view returns (uint256)
+                         EpochData storage epoch,
+                         uint256 lastTotalSupply) internal view returns (uint256)
     {
         return
             balanceOf(account)
@@ -268,20 +268,20 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function earned(address account) public view returns (uint256 acc) {
 
-    	uint currentSupply = totalSupply();
-    	int lastClaimedEpochIdx = int(lastClaimedEpoch[account]);
+        uint currentSupply = totalSupply();
+        int lastClaimedEpochIdx = int(lastClaimedEpoch[account]);
 
         for (int i=int(calcCurrentEpoch()); i>=lastClaimedEpochIdx; i--) {
-        	EpochData storage epoch = epochs[uint(i)];
+            EpochData storage epoch = epochs[uint(i)];
 
-        	uint epochTotalSupply = currentSupply;
-        	if (epoch.closed) {
-        		epochTotalSupply = epoch.lastTotalSupply;
-        	}
-        	acc = acc.add(earnedEpoch(account, epoch, epochTotalSupply));
+            uint epochTotalSupply = currentSupply;
+            if (epoch.closed) {
+                epochTotalSupply = epoch.lastTotalSupply;
+            }
+            acc = acc.add(earnedEpoch(account, epoch, epochTotalSupply));
         }
 
-    	acc = acc.add(yetNotClaimedOldEpochRewards[account]);
+        acc = acc.add(yetNotClaimedOldEpochRewards[account]);
     }
 
     function getRewardEpoch(address account, EpochData storage epoch) internal updateReward(account, epoch) returns (uint256) {
@@ -294,22 +294,22 @@ contract StakingRewardsDecay is LPTokenWrapper {
     }
 
     function takeStockReward(address account) internal returns (uint256 acc) {
-    	for (uint i=lastClaimedEpoch[account]; i<=currentEpoch; i++) {
-    		uint256 reward = getRewardEpoch(account, epochs[i]);
-    		acc = acc.add(reward);
+        for (uint i=lastClaimedEpoch[account]; i<=currentEpoch; i++) {
+            uint256 reward = getRewardEpoch(account, epochs[i]);
+            acc = acc.add(reward);
             emit RewardTakeStock(account, reward, i);
-    	}
+        }
         lastClaimedEpoch[account] = currentEpoch;
     }
 
-	function gatherOldEpochReward(address account) internal {
-		if (currentEpoch == 0) {
-			return;
-		}
+    function gatherOldEpochReward(address account) internal {
+        if (currentEpoch == 0) {
+            return;
+        }
 
-		uint acc = takeStockReward(account);
-    	yetNotClaimedOldEpochRewards[account] = yetNotClaimedOldEpochRewards[account].add(acc);
-	}
+        uint acc = takeStockReward(account);
+        yetNotClaimedOldEpochRewards[account] = yetNotClaimedOldEpochRewards[account].add(acc);
+    }
 
     // stake visibility is public as overriding LPTokenWrapper's stake() function
     function stakeEpoch(uint256 amount, address gem, address usr, EpochData storage epoch) internal updateReward(usr, epoch) {
@@ -323,12 +323,12 @@ contract StakingRewardsDecay is LPTokenWrapper {
         stakeEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
 
         amounts[gem][msg.sender] = amounts[gem][msg.sender].add(amount);
-		IERC20(gem).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(gem).safeTransferFrom(msg.sender, address(this), amount);
     }
 
 
     function withdrawEpoch(uint256 amount, address gem, address usr, EpochData storage epoch) internal updateReward(usr, epoch) {
-    	gatherOldEpochReward(usr);
+        gatherOldEpochReward(usr);
         withdrawLp(amount, gem, usr);
         emit Withdrawn(usr, gem, amount);
     }
@@ -343,21 +343,21 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
 
     function getReward() public
-    	checkStart
-    	updateCurrentEpoch
-    	updateReward(msg.sender, epochs[currentEpoch])
-    	returns (uint256 acc)
+        checkStart
+        updateCurrentEpoch
+        updateReward(msg.sender, epochs[currentEpoch])
+        returns (uint256 acc)
     {
-    	acc = takeStockReward(msg.sender);
+        acc = takeStockReward(msg.sender);
 
-    	acc = acc.add(yetNotClaimedOldEpochRewards[msg.sender]);
-    	yetNotClaimedOldEpochRewards[msg.sender] = 0;
+        acc = acc.add(yetNotClaimedOldEpochRewards[msg.sender]);
+        yetNotClaimedOldEpochRewards[msg.sender] = 0;
 
-    	if (acc > 0) {
-	        totalRewards = totalRewards.add(acc);
-			IERC20(gov).safeTransfer(msg.sender, acc);
-			emit RewardPaid(msg.sender, acc);
-		}
+        if (acc > 0) {
+            totalRewards = totalRewards.add(acc);
+            IERC20(gov).safeTransfer(msg.sender, acc);
+            emit RewardPaid(msg.sender, acc);
+        }
     }
 
 
