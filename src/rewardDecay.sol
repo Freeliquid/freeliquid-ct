@@ -49,6 +49,9 @@ contract StakingRewardsDecay is LPTokenWrapper {
 	    bool closed;
 	}
 
+
+	mapping(address => mapping(address => uint256)) amounts;
+
 	uint public EPOCHCOUNT = 0;
 	uint public epochInited = 0;
 	EpochData[] public epochs;
@@ -318,6 +321,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
     function stake(uint256 amount, address gem) public checkStart updateCurrentEpoch {
         require(amount > 0, "Cannot stake 0");
         stakeEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
+
+        amounts[gem][msg.sender] = amounts[gem][msg.sender].add(amount);
 		IERC20(gem).safeTransferFrom(msg.sender, address(this), amount);
     }
 
@@ -332,6 +337,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
         require(amount > 0, "Cannot withdraw 0");
         withdrawEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
 
+        amounts[gem][msg.sender] = amounts[gem][msg.sender].sub(amount);
         IERC20(gem).safeTransfer(msg.sender, amount);
     }
 
