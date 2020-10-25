@@ -249,7 +249,6 @@ contract RewardDecayTest is TestBase {
 
     assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 II");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
-    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal");
 
     assertFail(address(user2), abi.encodeWithSelector(user2.stake.selector, rewards, uniPair3, uniAmnt),
@@ -465,4 +464,66 @@ contract RewardDecayTest is TestBase {
     assertEqM(user1.getReward(rewards), accReward, "getRewards");
   }
 
+
+  event withdrawError(uint256 amount, address gem);
+
+  function testEventsHackInUniOrRewarder() public {
+    uint starttime = 10;
+
+    prepareRewarder3(starttime, 10);
+
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
+
+    uint value1 = 10000;
+    uint uniAmnt = addLiquidityToUser(value1, user1, uniPair3);
+
+    hevm.warp(starttime+1);
+
+    uniPair3.setThrownExc();
+
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0");
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal");
+    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.stake.selector, rewards, uniPair3, uniAmnt),
+               "user1.stake fail expected");
+
+    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal II");
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 II");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal II");
+
+    uniPair3.resetThrownExc();
+    user1.stake(rewards, uniPair3, uniAmnt);
+
+    assertEqM(rewards.balanceOf(address(user1)), value1*2, "rewards user1 bal III");
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "rewards.hld bal 0 III");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 III");
+    assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal III");
+
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.withdraw.selector, rewards, uniPair3, uniAmnt+1),
+               "user1.withdraw fail expected");
+
+    assertEqM(rewards.balanceOf(address(user1)), value1*2, "rewards user1 bal IIIb");
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "rewards.hld bal 0 IIIb");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IIIb");
+    assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal IIIb");
+
+    uniPair3.setThrownExc();
+
+    expectEventsExact(address(rewards.holder()));
+    emit withdrawError(uniAmnt, address(uniPair3));
+    //unfortunatelly event testing dosn't working now
+    //https://github.com/dapphub/dapptools/issues/18
+
+    user1.withdraw(rewards, uniPair3, uniAmnt);
+
+    assertEqM(rewards.balanceOf(address(user1)), value1*2, "rewards user1 bal IV");
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 IV");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal IV");
+
+  }
 }
