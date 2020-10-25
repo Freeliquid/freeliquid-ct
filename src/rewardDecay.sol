@@ -25,6 +25,7 @@
 pragma solidity ^0.5.12;
 
 import "./lpTokenWrapper.sol";
+import "./rewardsDecayHolder.sol";
 
 
 contract StakingRewardsDecay is LPTokenWrapper {
@@ -50,8 +51,6 @@ contract StakingRewardsDecay is LPTokenWrapper {
     }
 
 
-    mapping(address => mapping(address => uint256)) amounts;
-
     uint public EPOCHCOUNT = 0;
     uint public epochInited = 0;
     EpochData[] public epochs;
@@ -59,6 +58,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
     mapping(address => uint256) public lastClaimedEpoch;
     mapping(address => uint256) yetNotClaimedOldEpochRewards;
     uint256 public currentEpoch;
+
+    StakingRewardsDecayHolder public holder;
 
 
     event RewardAdded(uint256 reward, uint256 epoch, uint256 duration, uint256 starttime);
@@ -86,6 +87,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
         for (uint i =0; i<epochCount; i++) {
             epochs.push(data);
         }
+
+        holder = new StakingRewardsDecayHolder(address(this));
     }
 
     modifier checkStart(){
@@ -318,12 +321,10 @@ contract StakingRewardsDecay is LPTokenWrapper {
         emit Staked(usr, gem, amount);
     }
 
-    function stake(uint256 amount, address gem) public checkStart updateCurrentEpoch {
-        require(amount > 0, "Cannot stake 0");
-        stakeEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
-
-        amounts[gem][msg.sender] = amounts[gem][msg.sender].add(amount);
-        IERC20(gem).safeTransferFrom(msg.sender, address(this), amount);
+    function stake(address account, uint256 amount, address gem) public checkStart updateCurrentEpoch {
+        require (address(holder) == msg.sender);
+        assert(amount > 0);
+        stakeEpoch(amount, gem, account, epochs[currentEpoch]);
     }
 
 
@@ -333,12 +334,10 @@ contract StakingRewardsDecay is LPTokenWrapper {
         emit Withdrawn(usr, gem, amount);
     }
 
-    function withdraw(uint256 amount, address gem) public checkStart updateCurrentEpoch {
-        require(amount > 0, "Cannot withdraw 0");
-        withdrawEpoch(amount, gem, msg.sender, epochs[currentEpoch]);
-
-        amounts[gem][msg.sender] = amounts[gem][msg.sender].sub(amount);
-        IERC20(gem).safeTransfer(msg.sender, amount);
+    function withdraw(address account, uint256 amount, address gem) public checkStart updateCurrentEpoch {
+        require (address(holder) == msg.sender);
+        assert(amount > 0);
+        withdrawEpoch(amount, gem, account, epochs[currentEpoch]);
     }
 
 
@@ -371,3 +370,4 @@ contract StakingRewardsDecay is LPTokenWrapper {
         _;
     }
 }
+

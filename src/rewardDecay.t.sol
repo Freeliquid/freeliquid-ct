@@ -17,13 +17,24 @@ contract User {
   }
 
   function stake(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
-    gem.approve(address(rewards), amount);
-    rewards.stake(amount, address(gem));
+    gem.approve(address(rewards.holder()), amount);
+    rewards.holder().stake(amount, address(gem));
   }
 
-  function withdraw(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
-    rewards.withdraw(amount, address(gem));
+  function stakeNoHolder(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
+    gem.approve(address(rewards), amount);
+    rewards.stake(address(this), amount, address(gem));
   }
+
+
+  function withdraw(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
+    rewards.holder().withdraw(amount, address(gem));
+  }
+
+  function withdrawNoHolder(StakingRewardsDecay rewards, UniswapV2Pair gem, uint amount) public {
+    rewards.withdraw(address(this), amount, address(gem));
+  }
+
 
   function getReward(StakingRewardsDecay rewards) public returns (uint256) {
     return rewards.getReward();
@@ -228,6 +239,7 @@ contract RewardDecayTest is TestBase {
 
     hevm.warp(starttime+1);
 
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 I");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 I");
 
     uint value1 = 10000;
@@ -235,17 +247,22 @@ contract RewardDecayTest is TestBase {
 
     uint uniAmnt = addLiquidityToUser(value1, user1, uniPair3);
 
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 II");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 II");
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal");
 
     assertFail(address(user2), abi.encodeWithSelector(user2.stake.selector, rewards, uniPair3, uniAmnt),
                "user2.stake fail expected");
 
-    assertEq(rewards.earned(address(user1)), 0);
+    assertFail(address(user1), abi.encodeWithSelector(user1.stakeNoHolder.selector, rewards, uniPair3, uniAmnt),
+               "user1.stake fail expected NH");
 
+    assertEq(rewards.earned(address(user1)), 0);
 
     assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
     user1.stake(rewards, uniPair3, uniAmnt);
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "uniPair3 bal hld uniAmnt");
 
     assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal I");
 
@@ -264,15 +281,17 @@ contract RewardDecayTest is TestBase {
     assertEqM(rewards.balanceOf(address(user2)), 0, "rewards user2 bal I");
 
 
-    assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal");
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "rewards.hld bal");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0");
     assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal 0");
     assertEqM(uniPair3.balanceOf(address(user2)), 0, "user2 bal2 0");
     assertEqM(uniPair2.balanceOf(address(user2)), uniAmnt2, "user2 bal");
 
-    assertFail(address(rewards), abi.encodeWithSelector(rewards.withdraw.selector, uniAmnt, address(uniPair3)),
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.holder().withdraw.selector, uniAmnt, address(uniPair3)),
               "withdraw fail expected");
 
-    assertEqM(uniPair3.balanceOf(address(rewards)), uniAmnt, "rewards bal III");
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "rewards.hld bal III");
+    assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 III");
 
 
     hevm.warp(starttime+allTime/2);
@@ -287,14 +306,24 @@ contract RewardDecayTest is TestBase {
     if (getRewardOnHL2)
       assertEqM(user1.getReward(rewards), rewardHL2, "u1 getReward hl2");
 
-    if (user2Stake)
+    if (user2Stake) {
+      assertEqM(uniPair2.balanceOf(address(user2)), uniAmnt2, "user2 bal II");
+      assertEqM(uniPair2.balanceOf(address(rewards.holder())), 0, "rewards.hld bal uni2 0 III");
+      assertEqM(uniPair2.balanceOf(address(rewards)), 0, "rewards bal uni2 0 III");
       user2.stake(rewards, uniPair2, uniAmnt2);
+      assertEqM(uniPair2.balanceOf(address(rewards.holder())), uniAmnt2, "rewards.hld bal uni2 III");
+      assertEqM(uniPair2.balanceOf(address(rewards)), 0, "rewards bal uni2 0 III");
+      assertEqM(uniPair2.balanceOf(address(user2)), 0, "user2 bal II 0");
+    }
 
 
     hevm.warp(starttime+allTime+1);
 
+    assertFail(address(user1), abi.encodeWithSelector(user1.withdrawNoHolder.selector, rewards, uniPair3, uniAmnt),
+               "user1.withdraw fail expected NH");
 
     user1.withdraw(rewards, uniPair3, uniAmnt);
+    assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 IV");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user bal uniAmnt");
 
