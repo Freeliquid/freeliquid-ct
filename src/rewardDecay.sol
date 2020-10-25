@@ -55,8 +55,10 @@ contract StakingRewardsDecay is LPTokenWrapper {
     uint public epochInited = 0;
     EpochData[] public epochs;
 
+    mapping(bytes32 => address) public pairNameToGem;
+
     mapping(address => uint256) public lastClaimedEpoch;
-    mapping(address => uint256) yetNotClaimedOldEpochRewards;
+    mapping(address => uint256) public yetNotClaimedOldEpochRewards;
     uint256 public currentEpoch;
 
     StakingRewardsDecayHolder public holder;
@@ -227,14 +229,22 @@ contract StakingRewardsDecay is LPTokenWrapper {
     }
 
 
-    function registerPairDesc(address gem, address adapter, uint factor, address staker) public {
+    function registerPairDesc(address gem, address adapter, uint factor, bytes32 name) public {
         // only deployer can do it
         require(deployer == msg.sender);
 
         require(gem != address(0x0));
         require(adapter != address(0x0));
 
-        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker});
+        require(pairNameToGem[name] == address(0) || pairNameToGem[name] == gem, "duplicate name");
+
+        if (pairDescs[gem].name != "") {
+            delete pairNameToGem[pairDescs[gem].name];
+        }
+
+        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:address(0), name:name});
+
+        pairNameToGem[name] = gem;
     }
 
 

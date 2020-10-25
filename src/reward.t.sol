@@ -86,13 +86,13 @@ contract RewardTest is TestBase {
 
     rewards.registerPairDesc(address(uniPair), address(sadapter), 2, address(this));
 
-    (address gem, address adapter, address staker, uint factor) = rewards.pairDescs(address(uniPair));
+    (address gem, address adapter, address staker, uint factor,) = rewards.pairDescs(address(uniPair));
     assertEq(address(this), address(staker));
     assertEq(gem, address(uniPair));
     assertEq(adapter, address(sadapter));
     assertEq(factor, 2);
 
-    (gem, adapter, staker, factor) = rewards.pairDescs(address(0x0));
+    (gem, adapter, staker, factor,) = rewards.pairDescs(address(0x0));
     assertEq(gem, address(0));
     assertEq(adapter, address(0));
     assertEq(staker, address(0));

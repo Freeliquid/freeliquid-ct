@@ -157,19 +157,72 @@ contract RewardDecayTest is TestBase {
     prepareRewarder3(starttime, 10);
     assertTrue(address(rewards.gov()) == address(gov));
 
-    rewards.registerPairDesc(address(uniPair), address(sadapter), 2, address(this));
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 2, "1");
 
-    (address gem, address adapter, address staker, uint factor) = rewards.pairDescs(address(uniPair));
-    assertEq(address(this), address(staker));
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.registerPairDesc.selector,
+                                                        address(uniPair2), address(sadapter), 2, bytes32("1")),
+               "reg..PairDesc fail dub");
+
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, "2");
+
+    (address gem, address adapter, address staker, uint factor, bytes32 name) =
+          rewards.pairDescs(address(uniPair));
+    assertEq(address(0), address(staker));
     assertEq(gem, address(uniPair));
     assertEq(adapter, address(sadapter));
     assertEq(factor, 2);
+    assertEq(name, bytes32("1"));
 
-    (gem, adapter, staker, factor) = rewards.pairDescs(address(0x0));
+    (address gem2, address adapter2, address staker2, uint factor2, bytes32 name2) =
+          rewards.pairDescs(address(uniPair2));
+
+
+    assertEq(address(0), address(staker2));
+    assertEq(gem2, address(uniPair2));
+    assertEq(adapter2, address(sadapter));
+    assertEq(factor2, 1);
+    assertEq(name2, bytes32("2"));
+
+    assertEq(rewards.pairNameToGem("2"), gem2);
+    assertEq(rewards.pairNameToGem("1"), gem);
+    assertEq(rewards.pairNameToGem(""), address(0));
+    assertEq(rewards.pairNameToGem("100"), address(0));
+    assertEq(rewards.pairNameToGem("10000"), address(0));
+
+
+    (gem, adapter, staker, factor, name) = rewards.pairDescs(address(0x0));
     assertEq(gem, address(0));
     assertEq(adapter, address(0));
     assertEq(staker, address(0));
     assertEq(factor, 0);
+    assertEq(name, "");
+
+
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 2, "100");
+
+    (gem, adapter, staker, factor, name) = rewards.pairDescs(address(uniPair));
+
+    assertEq(address(0), address(staker));
+    assertEq(gem, address(uniPair));
+    assertEq(adapter, address(sadapter));
+    assertEq(factor, 2);
+    assertEq(name, bytes32("100"));
+
+    (gem2, adapter2, staker2, factor2, name2) =rewards.pairDescs(address(uniPair2));
+
+    assertEq(address(0), address(staker2));
+    assertEq(gem2, address(uniPair2));
+    assertEq(adapter2, address(sadapter));
+    assertEq(factor2, 1);
+    assertEq(name2, bytes32("2"));
+
+
+    assertEq(rewards.pairNameToGem("2"), gem2);
+    assertEq(rewards.pairNameToGem("1"), address(0));
+    assertEq(rewards.pairNameToGem(""), address(0));
+    assertEq(rewards.pairNameToGem("100"), gem);
+    assertEq(rewards.pairNameToGem("10000"), address(0));
+
 
     hevm.warp(starttime+1);
     assertEq(rewards.earned(address(this)), 0);
@@ -232,8 +285,8 @@ contract RewardDecayTest is TestBase {
 
     uint allTime = prepareRewarder3(starttime, 10);
 
-    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
-    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, address(this));
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, "2");
 
     assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 1");
 
@@ -411,7 +464,7 @@ contract RewardDecayTest is TestBase {
     uint allTime = prepareRewarder(vars.n, starttime, rewardStep, timeStep, skipEpoch);
     assertEqM(allTime, timeStep*vars.n, "allTime==timeStep*n");
 
-    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
 
     uint border=2;
 
@@ -472,7 +525,7 @@ contract RewardDecayTest is TestBase {
 
     prepareRewarder3(starttime, 10);
 
-    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(this));
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
 
     uint value1 = 10000;
     uint uniAmnt = addLiquidityToUser(value1, user1, uniPair3);

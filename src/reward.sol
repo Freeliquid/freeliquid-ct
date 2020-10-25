@@ -115,7 +115,7 @@ contract StakingRewards is LPTokenWrapper {
         require(gem != address(0x0));
         require(adapter != address(0x0));
 
-        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker});
+        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker, name:"dummy"});
     }
 
 

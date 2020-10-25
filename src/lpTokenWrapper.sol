@@ -258,6 +258,7 @@ contract LPTokenWrapper is Initializable {
         address adapter;
         address staker;
         uint factor;
+        bytes32 name;
     }
 
     mapping (address => PairDesc) public pairDescs;
