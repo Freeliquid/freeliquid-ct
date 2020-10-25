@@ -23,13 +23,13 @@ contract UniswapV2Pair is DSToken("UNIv2") {
 
     bool thrownExc = false;
 
-		function setThrownExc() public {
-			thrownExc = true;
-		}
+    function setThrownExc() public {
+      thrownExc = true;
+    }
 
-		function resetThrownExc() public {
-			thrownExc = false;
-		}
+    function resetThrownExc() public {
+      thrownExc = false;
+    }
 
     function token0() external view returns (address) {
       return t0;
@@ -48,7 +48,7 @@ contract UniswapV2Pair is DSToken("UNIv2") {
     }
 
     function getReserves() external view returns (uint112 _reserve0, uint112 _reserve1, uint32 blockTimestampLast) {
-    	require(!thrownExc);
+      require(!thrownExc);
       _reserve0 = reserve0;
       _reserve1 = reserve1;
       blockTimestampLast = 0;
@@ -173,16 +173,16 @@ contract TestBase is DSTest {
   }
 
 
-	function assertFail(address c, bytes memory call, bytes32 m) internal {
+  function assertFail(address c, bytes memory call, bytes32 m) internal {
 
-		(bool ret, ) = c.call(call);
-		if (m.length > 0 && m[0] == "!") {
-			ret = !ret;
-		}
-		if (ret) {
-			emit log_bytes32(m);
-			fail();
-		}
-	}
+    (bool ret, ) = c.call(call);
+    if (m.length > 0 && m[0] == "!") {
+      ret = !ret;
+    }
+    if (ret) {
+      emit log_bytes32(m);
+      fail();
+    }
+  }
 }
 
