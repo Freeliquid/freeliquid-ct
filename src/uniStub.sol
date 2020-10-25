@@ -2,7 +2,7 @@ pragma solidity ^0.5.0;
 
 
 contract UniswapStableStub {
-	uint256  public  decimals = 6;
+    uint256  public  decimals = 6;
 }
 
 contract UniswapPairUSDTUSDCStub {
@@ -34,15 +34,15 @@ contract UniswapPairUSDTUSDCStub {
     }
 
     function token0() public view returns (address) {
-    	return address(t0);
+        return address(t0);
     }
 
     function token1() public view returns (address) {
-    	return address(t1);
+        return address(t1);
     }
 
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) {
-    	return (uint112(_supply), uint112(_supply), 0);
+        return (uint112(_supply), uint112(_supply), 0);
     }
 
     function totalSupply() public view returns (uint) {
