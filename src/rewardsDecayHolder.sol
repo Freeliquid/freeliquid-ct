@@ -17,7 +17,7 @@ contract StakingRewardsDecayHolder {
 
     IRewarder public rewarder;
 
-    mapping(address => mapping(address => uint256)) amounts;
+    mapping(address => mapping(address => uint256)) public amounts;
 
     event withdrawError(uint256 amount, address gem);
 
