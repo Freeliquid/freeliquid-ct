@@ -109,9 +109,9 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
     function initEpoch(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) internal
     {
-        require(idx < EPOCHCOUNT);
-        require(duration > 0);
-        require(starttime > 0);
+        require(idx < EPOCHCOUNT, "idx < EPOCHCOUNT");
+        require(duration > 0, "duration > 0");
+        require(starttime >= block.timestamp, "starttime > block.timestamp");
 
         EpochData storage epoch = epochs[idx];
 

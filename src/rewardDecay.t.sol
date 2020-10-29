@@ -635,4 +635,20 @@ contract RewardDecayTest is TestBase {
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal IV");
 
   }
+
+
+  function testEpochStartTimeAfterCreate() public {
+    hevm.warp(100);
+    uint starttime = 90;
+    rewards.initialize(address(gov), 10);
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.initRewardAmount.selector,
+          1000, starttime, 10, 0), "init have to fail");
+
+    starttime = 100;
+
+    rewards.initRewardAmount(1000, starttime, 10, 0);
+  }
+
+
 }
