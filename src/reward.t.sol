@@ -700,4 +700,52 @@ contract RewardTest is TestBase {
     checkFairDistribution(0, false);
   }
 
+  function testHalfTime() public {
+    uint starttime = 10;
+    rewardDuration=259200;
+    totalRewards=100000*(10**18);
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, address(join2));
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(join3));
+
+    uniPair.approve(address(rewards));
+    uniPair2.approve(address(rewards));
+    uniPair3.approve(address(rewards));
+
+    uint v1 = 10000;
+    uint l1 = addLiquidity(v1/2);
+
+    uint v2 = 14000;
+    uint l2 = addLiquidity2(v2/2);
+
+    uint v3 = 5000;
+    uint l3 = addLiquidity3(v3/2);
+
+    hevm.warp(starttime+rewardDuration/3);
+    joinHelper(join, l1);
+
+    hevm.warp(starttime+rewardDuration/3+rewardDuration/10);
+    joinHelper(join2, l2);
+
+    hevm.warp(starttime+rewardDuration/3+rewardDuration/10+100);
+    uint256 reward = rewards.getReward();
+
+    hevm.warp(starttime+rewardDuration/3+rewardDuration/8);
+    joinHelper(join3, l3);
+
+    hevm.warp(starttime+rewardDuration-rewardDuration/8);
+    join.exit(address(this), l1);
+
+
+    hevm.warp(starttime+rewardDuration+1);
+    join2.exit(address(this), l2);
+    join3.exit(address(this), l3);
+
+    uint256 rewardReady = rewards.earned(address(this)) + reward;
+    uint256 err = 3;
+    assertEqM(rewardReady/(10**18)+err, 2*totalRewards/3/(10**18), "rewardReady totalRewards/2");
+
+  }
+
 }
