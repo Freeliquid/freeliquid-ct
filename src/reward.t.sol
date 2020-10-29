@@ -261,7 +261,7 @@ contract RewardTest is TestBase {
 
     hevm.warp(starttime+rewardDuration+2);
     rewardReady = rewards.earned(address(this));
-    assertEqM(rewardReady+1*totalRewardsMul+1, totalRewards, "rewardReady totalRewards 100%");
+    assertEqM(rewardReady/totalRewardsMul+1, totalRewards/totalRewardsMul, "rewardReady totalRewards 100%");
 
     (ret, ) = address(join).call(abi.encodeWithSelector(join.exit.selector, address(this), l+l2-w+1));
     if (ret) {
@@ -532,7 +532,7 @@ contract RewardTest is TestBase {
     assertEqM(earned2+earned2f, gov.balanceOf(address(user2)), "gov2f bal");
 
     assertEqM(totalRewards-(earned1+earned2+earned2f), gov.balanceOf(address(rewards)), "gov rewards bal near 0");
-    assertEqM(gov.balanceOf(address(rewards))/totalRewardsMul, 1, "gov rewards bal is 1");
+    assertEqM(gov.balanceOf(address(rewards))/totalRewardsMul, 0, "gov rewards bal is 1");
 
     assertEqM(0, user1.getReward(rewards), "getReward1ff is 0");
     assertEqM(0, user2.getReward(rewards), "getReward2ff is 0");
@@ -700,7 +700,7 @@ contract RewardTest is TestBase {
     checkFairDistribution(0, false);
   }
 
-  function testHalfTime() public {
+  function testPartialTimes() public {
     uint starttime = 10;
     rewardDuration=259200;
     totalRewards=100000*(10**18);
@@ -743,9 +743,66 @@ contract RewardTest is TestBase {
     join3.exit(address(this), l3);
 
     uint256 rewardReady = rewards.earned(address(this)) + reward;
-    uint256 err = 3;
-    assertEqM(rewardReady/(10**18)+err, 2*totalRewards/3/(10**18), "rewardReady totalRewards/2");
-
+    assertEqM(rewardReady/(10**18), 2*totalRewards/3/(10**18), "rewardReady totalRewards/3");
   }
+
+  function testStartTimeAfterCreate() public {
+    rewardDuration=259200;
+    totalRewards=100000*(10**18);
+    hevm.warp(100);
+    uint starttime = 90;
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.initialize.selector,
+          address(gov), rewardDuration, totalRewards, starttime), "init have to fail");
+
+    starttime = 100;
+    rewards.initialize(address(gov), rewardDuration, totalRewards, starttime);
+  }
+
+  function testRepeat() public {
+    uint starttime = 1603497774;
+    rewardDuration=259200;
+    totalRewards=100000*(10**18);
+    hevm.warp(1603497774-3600);
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
+
+    //1603673652 create time
+
+    uniPair.approve(address(rewards));
+
+    uint v1 = 10000;
+    uint l1 = addLiquidity(v1/2);
+
+    uint v2 = 14000;
+    uint l2 = addLiquidity(v2/2);
+
+    hevm.warp(1603743120);
+    joinHelper(join, l1);
+
+    hevm.warp(1603749400);
+    uint256 reward1 = rewards.getReward();
+
+    //end at 1603756974
+
+    hevm.warp(1603803448);
+    uint256 reward2 = rewards.getReward();
+
+    hevm.warp(1603824204);
+    uint256 reward3 = rewards.getReward();
+
+    hevm.warp(1603824252);
+    joinHelper(join, l2);
+
+
+    hevm.warp(1603998768);
+    uint256 reward4 = rewards.getReward();
+
+    assertEqM(reward1/(10**18), 2422, "reward1");
+    assertEqM(reward2/(10**18), 2922, "reward2");
+    assertEqM(reward3/(10**18), 0, "reward3");
+    assertEqM(reward4/(10**18), 0, "reward4");
+  }
+
 
 }

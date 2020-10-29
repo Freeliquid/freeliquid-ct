@@ -91,6 +91,8 @@ contract StakingRewards is LPTokenWrapper {
         // only deployer can initialize
         require(deployer == msg.sender);
 
+        require(_starttime >= block.timestamp);
+
         gov = _gov;
 
         duration = _duration;
@@ -205,10 +207,11 @@ contract StakingRewards is LPTokenWrapper {
         internal
         updateReward(address(0))
     {
+        require(starttime >= block.timestamp);
         rewardRate = reward.div(duration);
         initreward = reward;
-        lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp.add(duration);
+        lastUpdateTime = starttime;
+        periodFinish = starttime.add(duration);
         emit RewardAdded(reward);
     }
 }
