@@ -31,6 +31,7 @@ import "./rewardsDecayHolder.sol";
 contract StakingRewardsDecay is LPTokenWrapper {
     address public gov;
     address public deployer;
+    address public aggregator;
     uint256 public totalRewards = 0;
 
 
@@ -91,6 +92,14 @@ contract StakingRewardsDecay is LPTokenWrapper {
         }
 
         holder = new StakingRewardsDecayHolder(address(this));
+    }
+
+    function setupAggregator(address _aggregator) public {
+        require(deployer == msg.sender);
+        require(_aggregator != address(0));
+        require(aggregator == address(0)); //only one set allowed
+
+        aggregator = _aggregator;
     }
 
     modifier checkStart(){
@@ -371,25 +380,32 @@ contract StakingRewardsDecay is LPTokenWrapper {
         withdrawEpoch(amount, gem, account, epochs[currentEpoch]);
     }
 
-
-    function getReward() public
+    function getRewardCore(address account) internal
         checkStart
         updateCurrentEpoch
-        updateReward(msg.sender, epochs[currentEpoch])
+        updateReward(account, epochs[currentEpoch])
         returns (uint256 acc)
     {
-        acc = takeStockReward(msg.sender);
+        acc = takeStockReward(account);
 
-        acc = acc.add(yetNotClaimedOldEpochRewards[msg.sender]);
-        yetNotClaimedOldEpochRewards[msg.sender] = 0;
+        acc = acc.add(yetNotClaimedOldEpochRewards[account]);
+        yetNotClaimedOldEpochRewards[account] = 0;
 
         if (acc > 0) {
             totalRewards = totalRewards.add(acc);
-            IERC20(gov).safeTransfer(msg.sender, acc);
-            emit RewardPaid(msg.sender, acc);
+            IERC20(gov).safeTransfer(account, acc);
+            emit RewardPaid(account, acc);
         }
     }
 
+    function getReward() public returns (uint256) {
+        return getRewardCore(msg.sender);
+    }
+
+    function getRewardEx(address account) public returns (uint256) {
+        require(aggregator == msg.sender);
+        return getRewardCore(account);
+    }
 
     modifier updateReward(address account, EpochData storage epoch) {
         assert (account != address(0));
@@ -402,3 +418,18 @@ contract StakingRewardsDecay is LPTokenWrapper {
     }
 }
 
+
+contract RewardDecayAggregator {
+    StakingRewardsDecay[2] rewarders;
+
+    constructor (address rewarder0, address rewarder1) public {
+        rewarders[0]=StakingRewardsDecay(rewarder0);
+        rewarders[1]=StakingRewardsDecay(rewarder1);
+    }
+
+    function claimReward() public {
+        for (uint i=0; i<rewarders.length; i++) {
+            rewarders[i].getRewardEx(msg.sender);
+        }
+    }
+}

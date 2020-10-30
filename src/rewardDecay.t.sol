@@ -39,6 +39,10 @@ contract User {
   function getReward(StakingRewardsDecay rewards) public returns (uint256) {
     return rewards.getReward();
   }
+
+  function claimAllReward(RewardDecayAggregator rewards) public {
+    return rewards.claimReward();
+  }
 }
 
 contract RewardDecayTest is TestBase {
@@ -650,5 +654,75 @@ contract RewardDecayTest is TestBase {
     rewards.initRewardAmount(1000, starttime, 10, 0);
   }
 
+
+  function testRewardDecayActions() public {
+    uint starttime = 100;
+
+    prepareRewarder3(starttime, 10);
+
+    StakingRewardsDecay rewards2 = new StakingRewardsDecay();
+
+    uint n = 3;
+    rewards2.initialize(address(gov), n);
+    rewards2.initRewardAmount(1000, starttime, 100, 0);
+    rewards2.initRewardAmount(1000, 200, 100, 1);
+    rewards2.initRewardAmount(1000, 300, 100, 2);
+    gov.mint(address(rewards2), 3000);
+    rewards2.approveEpochsConsistency();
+
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, "1");
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "2");
+    rewards2.registerPairDesc(address(uniPair2), address(sadapter), 1, "3");
+
+
+    hevm.warp(starttime+1);
+
+    uint value1 = 10000;
+
+    uint uniAmnt1 = addLiquidityToUser(value1, user1, uniPair3);
+    uint uniAmnt2 = addLiquidityToUser(value1, user2, uniPair2);
+    uint uniAmnt2_ = addLiquidityToUser(value1, user2, uniPair);
+
+    user1.stake(rewards, uniPair3, uniAmnt1);
+    user2.stake(rewards2, uniPair2, uniAmnt2);
+    user2.stake(rewards, uniPair, uniAmnt2_);
+
+    hevm.warp(starttime+1000);
+    uint earned1 = rewards.earned(address(user1));
+    uint earned2 = rewards2.earned(address(user2));
+    uint earned2_ = rewards.earned(address(user2));
+    assertEqM(earned1, 499, "earned1");
+    assertEqM(earned2, 2990, "earned2");
+    assertEqM(earned2_, 499, "earned2_");
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.getRewardEx.selector, address(user2)),
+      "fail expected agg 2");
+
+    assertFail(address(rewards2), abi.encodeWithSelector(rewards2.getRewardEx.selector, address(user1)),
+      "fail expected agg 1");
+
+    RewardDecayAggregator rewardsArr = new RewardDecayAggregator(address(rewards), address(rewards2));
+    RewardDecayAggregator rewardsArrEnemy = new RewardDecayAggregator(address(rewards), address(rewards2));
+
+    rewards2.setupAggregator(address(rewardsArr));
+    rewards.setupAggregator(address(rewardsArr));
+
+    assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 0");
+    assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 0");
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.claimAllReward.selector, rewardsArrEnemy),
+      "fail expected u1");
+    assertFail(address(user2), abi.encodeWithSelector(user2.claimAllReward.selector, rewardsArrEnemy),
+      "fail expected u2");
+
+    assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 0");
+    assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 0");
+
+    user1.claimAllReward(rewardsArr);
+    user2.claimAllReward(rewardsArr);
+
+    assertEqM(gov.balanceOf(address(user1)), earned1, "gov bal u1");
+    assertEqM(gov.balanceOf(address(user2)), earned2+earned2_, "gov bal u2");
+  }
 
 }
