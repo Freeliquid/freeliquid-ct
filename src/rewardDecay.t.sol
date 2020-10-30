@@ -43,6 +43,10 @@ contract User {
   function claimAllReward(RewardDecayAggregator rewards) public {
     return rewards.claimReward();
   }
+
+  function earned(RewardDecayAggregator rewards) public view returns (uint256) {
+    return rewards.earned();
+  }
 }
 
 contract RewardDecayTest is TestBase {
@@ -717,6 +721,9 @@ contract RewardDecayTest is TestBase {
 
     assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 0");
     assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 0");
+
+    assertEqM(user1.earned(rewardsArr), earned1, "gov bal u1 earned");
+    assertEqM(user2.earned(rewardsArr), earned2+earned2_, "gov bal u2 earned");
 
     user1.claimAllReward(rewardsArr);
     user2.claimAllReward(rewardsArr);

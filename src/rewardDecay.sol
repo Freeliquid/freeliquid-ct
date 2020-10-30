@@ -420,6 +420,8 @@ contract StakingRewardsDecay is LPTokenWrapper {
 
 
 contract RewardDecayAggregator {
+    using SafeMath for uint256;
+
     StakingRewardsDecay[2] rewarders;
 
     constructor (address rewarder0, address rewarder1) public {
@@ -430,6 +432,12 @@ contract RewardDecayAggregator {
     function claimReward() public {
         for (uint i=0; i<rewarders.length; i++) {
             rewarders[i].getRewardEx(msg.sender);
+        }
+    }
+
+    function earned() public view returns (uint res){
+        for (uint i=0; i<rewarders.length; i++) {
+            res = res.add(rewarders[i].earned(msg.sender));
         }
     }
 }
