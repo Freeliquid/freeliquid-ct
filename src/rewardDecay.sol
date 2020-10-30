@@ -422,7 +422,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
 contract RewardDecayAggregator {
     using SafeMath for uint256;
 
-    StakingRewardsDecay[2] rewarders;
+    StakingRewardsDecay[2] public rewarders;
 
     constructor (address rewarder0, address rewarder1) public {
         rewarders[0]=StakingRewardsDecay(rewarder0);
