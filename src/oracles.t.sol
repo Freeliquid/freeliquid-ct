@@ -77,6 +77,7 @@ contract OracleTest is DSTest {
   AggregatorV3Stub public priceUSDETH;
   UniswapToken uni;
   UniswapAdapterPriceOracle_USDT_USDC oracle;
+  UniswapAdapterPriceOracle_Buck_Buck oracleBb;
   DSToken t0;
   DSToken t1;
 
@@ -94,7 +95,20 @@ contract OracleTest is DSTest {
     uni.setupTokens(t0, t1);
 
     oracle = new UniswapAdapterPriceOracle_USDT_USDC();
-    oracle.setup(address(priceETHUSDT), address(priceUSDETH), address(uni));
+    oracle.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t0));
+
+    oracleBb = new UniswapAdapterPriceOracle_Buck_Buck();
+    oracleBb.setup(address(uni));
+  }
+
+  function testFailSetup1() public {
+    UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
+    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t1));
+  }
+
+  function testFailSetup2() public {
+    UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
+    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(this));
   }
 
   function mintToUni(uint amnt0, uint amnt1) public {
@@ -125,6 +139,34 @@ contract OracleTest is DSTest {
     assertEq(t0.totalSupply(), 1000*(10**6));
     assertEq(t1.totalSupply(), 1000*(10**6));
     assertEq(val, uint(2 * 10**18));
+  }
+
+  function testBb() public {
+    uni.mint(address(this), 1000*(10**18));
+    mintToUni(1000*(10**6));
+
+
+    (bytes32 val, bool has) = oracle.peek();
+    assertEq(uint(has?1:0), uint(1));
+
+    assertEq(uni.totalSupply(), 1000*(10**18));
+    assertEq(t0.totalSupply(), 1000*(10**6));
+    assertEq(t1.totalSupply(), 1000*(10**6));
+    assertEq(uint(val), uint(2 * 10**18));
+  }
+
+  function testBbDis() public {
+    uni.mint(address(this), 1000*(10**18));
+    mintToUni(1000*(10**6), 2000*(10**6));
+
+
+    (bytes32 val, bool has) = oracle.peek();
+    assertEq(uint(has?1:0), uint(1));
+
+    assertEq(uni.totalSupply(), 1000*(10**18));
+    assertEq(t0.totalSupply(), 1000*(10**6));
+    assertEq(t1.totalSupply(), 2000*(10**6));
+    assertEq(uint(val), uint(3 * 10**18));
   }
 
 
