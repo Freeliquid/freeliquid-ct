@@ -36,7 +36,7 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
     AggregatorV3Interface public priceUSDETH;
     UniswapV2PairLike public gem;
     address public deployer;
-    address public usdcAddress;
+    address public usdtAddress;
 
 
 
@@ -44,25 +44,30 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         deployer = msg.sender;
     }
 
-    function setup(address _priceETHUSDT, address _priceUSDETH, address _gem, address _usdcAddress) public {
+    function setup(address _priceETHUSDT, address _priceUSDETH, address _gem, address _usdtAddress, bool usdtAsString) public {
         require(deployer == msg.sender);
-        require(_usdcAddress != address(0));
+        require(_usdtAddress != address(0));
         require(_priceETHUSDT != address(0));
         require(_priceUSDETH != address(0));
         require(_gem != address(0));
 
-        (bool success, bytes memory returndata) = address(_usdcAddress).call(abi.encodeWithSignature("symbol()"));
-        require(success, "USDC: low-level call failed");
+        (bool success, bytes memory returndata) = address(_usdtAddress).call(abi.encodeWithSignature("symbol()"));
+        require(success, "USDT: low-level call failed");
 
-        require(returndata.length == 32);
-        bytes32 usdcSymbol = abi.decode(returndata, (bytes32));
-        require(usdcSymbol == "USDC");
+        require(returndata.length > 0);
+        if (usdtAsString) {
+            bytes memory usdtSymbol = bytes(abi.decode(returndata, (string)));
+            require(keccak256(bytes(usdtSymbol)) == keccak256("USDT"));
+        } else {
+            bytes32 usdtSymbol = abi.decode(returndata, (bytes32));
+            require(usdtSymbol == "USDT");
+        }
 
 
         priceETHUSDT = AggregatorV3Interface(_priceETHUSDT); //1/354 USD kovan:0x0bF499444525a23E7Bb61997539725cA2e928138
         priceUSDETH = AggregatorV3Interface(_priceUSDETH); //354 USD kovan:0x9326BFA02ADD2366b30bacB125260Af641031331
         gem = UniswapV2PairLike(_gem);
-        usdcAddress = _usdcAddress;
+        usdtAddress = _usdtAddress;
 
         deployer = address(0);
     }
@@ -83,7 +88,7 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         (uint112 _reserve0, uint112 _reserve1,) = gem.getReserves();
 
         TokenPair memory tokenPair;
-        if (gem.token0() == usdcAddress) {
+        if (gem.token1() == usdtAddress) {
             tokenPair.usdc = gem.token0(); //USDC
             tokenPair.usdt = gem.token1(); //USDT
         } else {

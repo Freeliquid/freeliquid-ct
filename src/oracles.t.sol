@@ -70,6 +70,13 @@ contract Token is DSToken {
     }
 }
 
+contract TokenWithSymbolUSDC {
+  string public symbol = "USDC";
+}
+
+contract TokenWithSymbolUSDT {
+  string public symbol = "USDT";
+}
 
 contract OracleTest is DSTest {
 
@@ -80,6 +87,9 @@ contract OracleTest is DSTest {
   UniswapAdapterPriceOracle_Buck_Buck oracleBb;
   DSToken t0;
   DSToken t1;
+
+  TokenWithSymbolUSDT ttUSDT;
+  TokenWithSymbolUSDC ttUSDC;
 
 
   Hevm hevm;
@@ -94,21 +104,31 @@ contract OracleTest is DSTest {
     uni = new UniswapToken(18);
     uni.setupTokens(t0, t1);
 
+    ttUSDT = new TokenWithSymbolUSDT();
+    ttUSDC = new TokenWithSymbolUSDC();
+
+
     oracle = new UniswapAdapterPriceOracle_USDT_USDC();
-    oracle.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t0));
+    oracle.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t1), false);
 
     oracleBb = new UniswapAdapterPriceOracle_Buck_Buck();
     oracleBb.setup(address(uni));
   }
 
-  function testFailSetup1() public {
+
+  function testSetup() public {
     UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
-    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t1));
+    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(ttUSDT), true);
   }
 
-  function testFailSetup2() public {
+  function testFailSetup() public {
     UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
-    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(this));
+    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(ttUSDC), true);
+  }
+
+  function testFailSetupEx() public {
+    UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
+    oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t1), true);
   }
 
   function mintToUni(uint amnt0, uint amnt1) public {
