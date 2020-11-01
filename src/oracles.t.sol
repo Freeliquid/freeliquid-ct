@@ -201,7 +201,7 @@ contract OracleTest is DSTest {
     mintToUni(1000*(10**6));
 
 
-    (bytes32 val, bool has) = oracle.peek();
+    (bytes32 val, bool has) = oracleBb.peek();
     assertEq(uint(has?1:0), uint(1));
 
     assertEq(uni.totalSupply(), 1000*(10**18));
@@ -215,7 +215,7 @@ contract OracleTest is DSTest {
     mintToUni(1000*(10**6), 2000*(10**6));
 
 
-    (bytes32 val, bool has) = oracle.peek();
+    (bytes32 val, bool has) = oracleBb.peek();
     assertEq(uint(has?1:0), uint(1));
 
     assertEq(uni.totalSupply(), 1000*(10**18));
