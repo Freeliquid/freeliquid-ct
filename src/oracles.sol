@@ -24,12 +24,14 @@ interface AggregatorV3Interface {
 }
 
 
-contract UniswapAdapterPriceOracle_USDT_USDC {
+contract UniswapAdapterPriceOracle_USDT_Buck {
     using SafeMath for uint;
 
     struct TokenPair {
-        address usdc;
+        address buck;
         address usdt;
+        uint buckReserve;
+        uint usdtReserve;
     }
 
     AggregatorV3Interface public priceETHUSDT;
@@ -85,27 +87,36 @@ contract UniswapAdapterPriceOracle_USDT_USDC {
         }
 
 
-        (uint112 _reserve0, uint112 _reserve1,) = gem.getReserves();
-
         TokenPair memory tokenPair;
-        if (gem.token1() == usdtAddress) {
-            tokenPair.usdc = gem.token0(); //USDC
-            tokenPair.usdt = gem.token1(); //USDT
-        } else {
-            tokenPair.usdt = gem.token0(); //USDT
-            tokenPair.usdc = gem.token1(); //USDC
+        {
+            (uint112 _reserve0, uint112 _reserve1,) = gem.getReserves();
+
+            if (gem.token1() == usdtAddress) {
+                tokenPair.buck = gem.token0(); //buck
+                tokenPair.buckReserve = uint(_reserve0);
+
+                tokenPair.usdt = gem.token1(); //USDT
+                tokenPair.usdtReserve = uint(_reserve1);
+            } else {
+                tokenPair.usdt = gem.token0(); //USDT
+                tokenPair.usdtReserve = uint(_reserve0);
+
+                tokenPair.buck = gem.token1(); //buck
+                tokenPair.buckReserve = uint(_reserve1);
+            }
         }
 
         uint usdPrec = 10**6;
 
-        uint r0 = uint(_reserve0).mul(usdPrec).div(uint(10) ** uint(IERC20(tokenPair.usdc).decimals())); //assume USDC == 1 USD
+        //assume buck == 1 USD
+        uint r0 = tokenPair.buckReserve.mul(usdPrec).div(uint(10) ** uint(IERC20(tokenPair.buck).decimals()));
 
         uint price1Div = 10**(uint(priceETHUSDT.decimals())
                              .add(uint(priceUSDETH.decimals()))
                              .add(uint(IERC20(tokenPair.usdt).decimals())));
 
         uint usdtPrice = uint(answerUSDETH).mul(uint(answerETHUSDT));
-        uint r1 = uint(_reserve1).mul(usdPrec).mul(usdtPrice).div(price1Div);
+        uint r1 = tokenPair.usdtReserve.mul(usdPrec).mul(usdtPrice).div(price1Div);
 
         uint totalValue = r0.add(r1); //total value in uni's reserves
         uint supply = gem.totalSupply();

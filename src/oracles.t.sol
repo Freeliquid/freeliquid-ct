@@ -78,15 +78,24 @@ contract TokenWithSymbolUSDT {
   string public symbol = "USDT";
 }
 
+interface OracleLike {
+  function peek() external view returns (bytes32, bool);
+}
+
 contract OracleTest is DSTest {
 
   AggregatorV3Stub public priceETHUSDT;
   AggregatorV3Stub public priceUSDETH;
   UniswapToken uni;
-  UniswapAdapterPriceOracle_USDT_USDC oracle;
+  UniswapToken uni2;
+  UniswapToken uni2i;
+  UniswapAdapterPriceOracle_USDT_Buck oracle;
+  UniswapAdapterPriceOracle_USDT_Buck oracle2;
+  UniswapAdapterPriceOracle_USDT_Buck oracle2i;
   UniswapAdapterPriceOracle_Buck_Buck oracleBb;
   DSToken t0;
   DSToken t1;
+  DSToken t2;
 
   TokenWithSymbolUSDT ttUSDT;
   TokenWithSymbolUSDC ttUSDC;
@@ -100,16 +109,30 @@ contract OracleTest is DSTest {
 
     t0 = new Token("USDC", 6);
     t1 = new Token("USDT", 6);
+    t2 = new Token("DAI", 18);
 
     uni = new UniswapToken(18);
     uni.setupTokens(t0, t1);
+
+    uni2 = new UniswapToken(18);
+    uni2.setupTokens(t1, t2);
+
+    uni2i = new UniswapToken(18);
+    uni2i.setupTokens(t2, t1);
+
 
     ttUSDT = new TokenWithSymbolUSDT();
     ttUSDC = new TokenWithSymbolUSDC();
 
 
-    oracle = new UniswapAdapterPriceOracle_USDT_USDC();
+    oracle = new UniswapAdapterPriceOracle_USDT_Buck();
     oracle.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t1), false);
+
+    oracle2 = new UniswapAdapterPriceOracle_USDT_Buck();
+    oracle2.setup(address(priceETHUSDT), address(priceUSDETH), address(uni2), address(t1), false);
+
+    oracle2i = new UniswapAdapterPriceOracle_USDT_Buck();
+    oracle2i.setup(address(priceETHUSDT), address(priceUSDETH), address(uni2i), address(t1), false);
 
     oracleBb = new UniswapAdapterPriceOracle_Buck_Buck();
     oracleBb.setup(address(uni));
@@ -117,17 +140,17 @@ contract OracleTest is DSTest {
 
 
   function testSetup() public {
-    UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
+    UniswapAdapterPriceOracle_USDT_Buck oracleEx = new UniswapAdapterPriceOracle_USDT_Buck();
     oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(ttUSDT), true);
   }
 
   function testFailSetup() public {
-    UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
+    UniswapAdapterPriceOracle_USDT_Buck oracleEx = new UniswapAdapterPriceOracle_USDT_Buck();
     oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(ttUSDC), true);
   }
 
   function testFailSetupEx() public {
-    UniswapAdapterPriceOracle_USDT_USDC oracleEx = new UniswapAdapterPriceOracle_USDT_USDC();
+    UniswapAdapterPriceOracle_USDT_Buck oracleEx = new UniswapAdapterPriceOracle_USDT_Buck();
     oracleEx.setup(address(priceETHUSDT), address(priceUSDETH), address(uni), address(t1), true);
   }
 
@@ -140,6 +163,18 @@ contract OracleTest is DSTest {
     assertEq(reserve0-reserve0b, amnt0);
     assertEq(reserve1-reserve1b, amnt1);
   }
+
+
+  function mintToUni2(uint amnt2, uint amnt1, UniswapToken uniRef, bool inv) public {
+    (uint112 reserve0b, uint112 reserve1b,) = uniRef.getReserves();
+    t2.mint(address(uniRef), amnt2);
+    t1.mint(address(uniRef), amnt1);
+    (uint112 reserve0, uint112 reserve1,) = uniRef.getReserves();
+
+    assertEq(reserve0-reserve0b, inv ? amnt2 : amnt1);
+    assertEq(reserve1-reserve1b, inv ? amnt1 : amnt2);
+  }
+
 
   function mintToUni(uint amnt) public {
     mintToUni(amnt, amnt);
@@ -187,6 +222,29 @@ contract OracleTest is DSTest {
     assertEq(t0.totalSupply(), 1000*(10**6));
     assertEq(t1.totalSupply(), 2000*(10**6));
     assertEq(uint(val), uint(3 * 10**18));
+  }
+
+  function implDAI_USDT(UniswapToken uniRef, OracleLike o, bool inv) public {
+    uniRef.mint(address(this), 1000*(10**18));
+    mintToUni2(1000*(10**18), 1000*(10**6), uniRef, inv);
+
+
+    (bytes32 val, bool has) = o.peek();
+    assertEq(uint(has?1:0), uint(1));
+
+    assertEq(uniRef.totalSupply(), 1000*(10**18));
+    assertEq(t2.totalSupply(), 1000*(10**18));
+    assertEq(t1.totalSupply(), 1000*(10**6));
+
+    assertEq(uint(val), uint(2 * 10**18));
+  }
+
+  function testDAI_USDT() public {
+    implDAI_USDT(uni2, OracleLike(address(oracle2)), false);
+  }
+
+  function testDAI_USDTinv() public {
+    implDAI_USDT(uni2i, OracleLike(address(oracle2i)), true);
   }
 
 
