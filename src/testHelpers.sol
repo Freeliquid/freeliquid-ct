@@ -93,6 +93,9 @@ contract VatMock {
     }
 }
 
+contract USDN is DSToken("USDN") {
+}
+
 contract TestBase is DSTest {
 
 
