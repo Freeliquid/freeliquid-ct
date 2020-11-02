@@ -331,7 +331,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
         acc = acc.add(yetNotClaimedOldEpochRewards[account]);
     }
 
-    function getRewardEpoch(address account, EpochData storage epoch) internal updateReward(account, epoch) returns (uint256) {
+    function getRewardEpoch(address account, EpochData storage epoch) internal returns (uint256) {
         uint256 reward = earnedEpoch(account, epoch, epoch.lastTotalSupply);
         if (reward > 0) {
             epoch.rewards[account] = 0;
