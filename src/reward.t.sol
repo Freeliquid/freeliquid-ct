@@ -177,6 +177,54 @@ contract RewardTest is TestBase {
   }
 
 
+  function testFlashLoans() public {
+    uint starttime = 10;
+    prepareRewarder(starttime);
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
+
+    uint v = 10000;
+    uint l = addLiquidity(v);
+
+    assertEq(uniPair.balanceOf(address(this)), l);
+    assertEq(uniPair.balanceOf(address(rewards)), 0);
+    uniPair.approve(address(rewards), l);
+
+    assertEq(rewards.balanceOf(address(this)), 0);
+    assertEq(rewards.totalSupply(), 0);
+
+
+
+    hevm.warp(starttime+1);
+    uint256 rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady, 0, "rewardReady 0");
+
+    joinHelper(join, l);
+
+    assertEqM(rewards.balanceOf(address(this)), 2*v*valueMult, "rewards.balanceOf(this)");
+    assertEqM(rewards.totalSupply(), 2*v*valueMult, "rewards.totalSupply");
+
+    join.exit(address(this), l);
+
+    rewardReady = rewards.earned(address(this));
+    assertEqM(rewardReady, 0, "rewardReady 0 a");
+
+    hevm.warp(starttime+10);
+
+    uint uniPairAmnt = addLiquidityCore(v, uniPair);
+    uniPair.transfer(address(user1), uniPairAmnt);
+
+    user1.joinHelper(join, uniPairAmnt, address(this));
+
+
+    hevm.warp(starttime+50);
+
+    joinHelper(join, l);
+    join.exit(address(this), l);
+
+    hevm.warp(starttime+100);
+
+    assertEqM(rewards.earned(address(user1)), 9000000000000000000, "reward u1 0 a");
+  }
 
   function testStakeUnstake() public {
     uint starttime = 10;
