@@ -102,8 +102,12 @@ contract StakingRewardsDecay is LPTokenWrapper {
         aggregator = _aggregator;
     }
 
+    function getStartTime() public view returns (uint) {
+        return epochs[0].starttime;
+    }
+
     modifier checkStart(){
-        require(block.timestamp >= epochs[0].starttime, "not start");
+        require(block.timestamp >= getStartTime(), "not start");
         require(epochInited == EPOCHCOUNT, "not all epochs was inited");
         _;
     }
@@ -195,7 +199,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
         require(epochInited == 0, "double call not allowed");
 
         uint totalReward = epochs[0].initreward;
-        require(epochs[0].starttime > 0);
+        require(getStartTime() > 0);
 
         for (uint i=1; i < EPOCHCOUNT; i++) {
             EpochData storage epoch = epochs[i];
