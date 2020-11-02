@@ -20,6 +20,8 @@ contract UniswapAdapterForStables is IAdapter {
     struct TokenPair {
         address t0;
         address t1;
+        uint r0;
+        uint r1;
     }
 
 
@@ -31,14 +33,14 @@ contract UniswapAdapterForStables is IAdapter {
         tokenPair.t0 = UniswapV2PairLike(gem).token0();
         tokenPair.t1 = UniswapV2PairLike(gem).token1();
 
-        uint r0 = uint(_reserve0).div(uint(10) ** IERC20(tokenPair.t0).decimals());
-        uint r1 = uint(_reserve1).div(uint(10) ** IERC20(tokenPair.t1).decimals());
+        tokenPair.r0 = uint(_reserve0).div(uint(10) ** IERC20(tokenPair.t0).decimals());
+        tokenPair.r1 = uint(_reserve1).div(uint(10) ** IERC20(tokenPair.t1).decimals());
 
-        uint totalValue = r0.min(r1).mul(2); //total value in uni's reserves for stables only
+        uint totalValue = tokenPair.r0.min(tokenPair.r1).mul(2); //total value in uni's reserves for stables only
 
         uint supply = UniswapV2PairLike(gem).totalSupply();
 
-        return value.mul(totalValue).mul(factor).div(supply);
+        return value.mul(totalValue).mul(factor).mul(1e18).div(supply);
     }
 }
 

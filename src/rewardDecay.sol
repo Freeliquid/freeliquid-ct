@@ -296,7 +296,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
                 lastTimeRewardApplicable(epoch)
                     .sub(epoch.lastUpdateTime)
                     .mul(epoch.rewardRate)
-                    .mul(1e18)
+                    .mul(1e18 * (10**decimals))
                     .div(lastTotalSupply)
             );
     }
@@ -308,7 +308,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
         return
             balanceOf(account)
                 .mul(rewardPerToken(epoch, lastTotalSupply).sub(epoch.userRewardPerTokenPaid[account]))
-                .div(1e18)
+                .div(1e18 * (10**decimals))
                 .add(epoch.rewards[account]);
     }
 

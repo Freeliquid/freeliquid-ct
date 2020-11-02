@@ -263,7 +263,7 @@ contract RewardDecayTest is TestBase {
     baseImpl(false, false, false);
   }
 
-  function testBase1User2() public {
+  function testBase1User2_org() public {
     baseImpl(true, true, false);
   }
 
@@ -350,7 +350,7 @@ contract RewardDecayTest is TestBase {
     user1.stake(rewards, uniPair3, uniAmnt);
     assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "uniPair3 bal hld uniAmnt");
 
-    assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal I");
+    assertEqM(rewards.balanceOf(address(user1)), 2*value1*valueMult, "rewards user1 bal I");
 
     (locals.gem, locals.avail, locals.locked, locals.lockedValue) =
       rewards.getPairInfo("1", address(user1));
@@ -360,7 +360,7 @@ contract RewardDecayTest is TestBase {
     assertEq(locals.gem, address(uniPair3));
     assertEqM(locals.avail, 0, "user1 avail II");
     assertEqM(locals.locked, uniAmnt, "user1 locked II");
-    assertEqM(locals.lockedValue, 2*value1, "user1 lockedValue II");
+    assertEqM(locals.lockedValue, 2*value1*valueMult, "user1 lockedValue II");
     assertEqM(locals.rewardPerHour, 3600, "user1 rewardPerHour II");
 
 
@@ -374,7 +374,7 @@ contract RewardDecayTest is TestBase {
     assertFail(address(user2), abi.encodeWithSelector(user2.stake.selector, rewards, uniPair3, locals.uniAmnt2/2),
               "user2.stake fail II expected");
 
-    assertEqM(rewards.balanceOf(address(user1)), 2*value1, "rewards user1 bal II");
+    assertEqM(rewards.balanceOf(address(user1)), 2*value1*valueMult, "rewards user1 bal II");
     assertEqM(rewards.balanceOf(address(user2)), 0, "rewards user2 bal I");
 
 
@@ -394,7 +394,7 @@ contract RewardDecayTest is TestBase {
     hevm.warp(locals.starttime+locals.allTime/2);
     assertEqM(locals.allTime/2, 1500, "allTime/2==1500");
 
-    assertEqM(rewards.balanceOf(address(user1)), 2*value1, "u1 rewards.balanceOf hl2");
+    assertEqM(rewards.balanceOf(address(user1)), 2*value1*valueMult, "u1 rewards.balanceOf hl2");
 
     assertEqM(rewards.calcCurrentEpoch(), 1, "rewards.calcCurrentEpoch 1");
     uint rewardHL2 = 2000-1;
@@ -467,7 +467,7 @@ contract RewardDecayTest is TestBase {
       assertEq(locals.gem, address(uniPair2));
       assertEqM(locals.avail, 0, "user2 avail I");
       assertEqM(locals.locked, locals.uniAmnt2, "user2 locked I");
-      assertEqM(locals.lockedValue, 2*value2, "user2 lockedValue I");
+      assertEqM(locals.lockedValue, 2*value2*valueMult, "user2 lockedValue I");
       assertEqM(locals.rewardPerHour, 3*3600, "user2 rewardPerHour I");
 
       user2.withdraw(rewards, uniPair2, locals.uniAmnt2/2);
@@ -480,7 +480,7 @@ contract RewardDecayTest is TestBase {
       assertEq(locals.gem, address(uniPair2));
       assertEqM(locals.avail, locals.uniAmnt2/2, "user2 avail II");
       assertEqM(locals.locked, locals.uniAmnt2/2, "user2 locked II");
-      assertEqM(locals.lockedValue, value2, "user2 lockedValue II");
+      assertEqM(locals.lockedValue, value2*valueMult, "user2 lockedValue II");
       assertEqM(locals.rewardPerHour, 3*3600, "user2 rewardPerHour II");
 
     }
@@ -621,7 +621,7 @@ contract RewardDecayTest is TestBase {
     uniPair3.resetThrownExc();
     user1.stake(rewards, uniPair3, uniAmnt);
 
-    assertEqM(rewards.balanceOf(address(user1)), value1*2, "rewards user1 bal III");
+    assertEqM(rewards.balanceOf(address(user1)), value1*2*valueMult, "rewards user1 bal III");
     assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "rewards.hld bal 0 III");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 III");
     assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal III");
@@ -630,7 +630,7 @@ contract RewardDecayTest is TestBase {
     assertFail(address(user1), abi.encodeWithSelector(user1.withdraw.selector, rewards, uniPair3, uniAmnt+1),
                "user1.withdraw fail expected");
 
-    assertEqM(rewards.balanceOf(address(user1)), value1*2, "rewards user1 bal IIIb");
+    assertEqM(rewards.balanceOf(address(user1)), value1*2*valueMult, "rewards user1 bal IIIb");
     assertEqM(uniPair3.balanceOf(address(rewards.holder())), uniAmnt, "rewards.hld bal 0 IIIb");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IIIb");
     assertEqM(uniPair3.balanceOf(address(user1)), 0, "user1 bal IIIb");
@@ -644,7 +644,7 @@ contract RewardDecayTest is TestBase {
 
     user1.withdraw(rewards, uniPair3, uniAmnt);
 
-    assertEqM(rewards.balanceOf(address(user1)), value1*2, "rewards user1 bal IV");
+    assertEqM(rewards.balanceOf(address(user1)), value1*2*valueMult, "rewards user1 bal IV");
     assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 IV");
     assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
     assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal IV");

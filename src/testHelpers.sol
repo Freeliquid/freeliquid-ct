@@ -111,6 +111,7 @@ contract TestBase is DSTest {
   DSToken gov;
   UniswapAdapterForStables sadapter;
   Hevm hevm;
+  uint valueMult = 1e18;
 
   function setUp() public {
     gov = new DSToken("GOV");

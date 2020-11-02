@@ -125,32 +125,32 @@ contract RewardTest is TestBase {
     assertEq(reserve1, token1.balanceOf(address(uniPair)));
 
     uint r = sadapter.calc(address(uniPair), l, 1);
-    assertEq(r, v * 2);
+    assertEq(r, v * 2 * valueMult);
 
     uint v2 = 30000;
     uint l2 = addLiquidity(v2);
 
     r = sadapter.calc(address(uniPair), l2, 1);
-    assertEq(r, v2 * 2);
+    assertEq(r, v2 * 2 * valueMult);
 
 
     v = 171234;
     l = addLiquidity(v);
 
     r = sadapter.calc(address(uniPair), l, 1);
-    assertEq(r, v * 2);
+    assertEq(r, v * 2 * valueMult);
 
     r = sadapter.calc(address(uniPair), l2, 1);
-    assertEq(r, v2 * 2);
+    assertEq(r, v2 * 2 * valueMult);
 
     v = 3;
     l = addLiquidity(v);
 
     r = sadapter.calc(address(uniPair), l, 1);
-    assertEq(r, v * 2);
+    assertEq(r, v * 2 * valueMult);
 
     r = sadapter.calc(address(uniPair), l2, 1);
-    assertEq(r, v2 * 2);
+    assertEq(r, v2 * 2 * valueMult);
   }
 
   function testRightsForStake() public {
@@ -218,8 +218,8 @@ contract RewardTest is TestBase {
     assertEq(uniPair.balanceOf(address(this)), 0);
     assertEq(uniPair.balanceOf(address(join)), l);
 
-    assertEq(rewards.balanceOf(address(this)), v*2);
-    assertEq(rewards.totalSupply(), v*2);
+    assertEq(rewards.balanceOf(address(this)), v*2*valueMult);
+    assertEq(rewards.totalSupply(), v*2*valueMult);
 
 
     uint v2 = 110000;
@@ -233,8 +233,8 @@ contract RewardTest is TestBase {
     assertEq(uniPair.balanceOf(address(this)), 0);
     assertEq(uniPair.balanceOf(address(join)), l+l2);
 
-    assertEq(rewards.balanceOf(address(this)), v*2+v2*2);
-    assertEq(rewards.totalSupply(), v*2+v2*2);
+    assertEq(rewards.balanceOf(address(this)), (v*2+v2*2)*valueMult);
+    assertEq(rewards.totalSupply(), (v*2+v2*2)*valueMult);
 
     hevm.warp(starttime+rewardDuration*400/500+1);
     rewardReady = rewards.earned(address(this));
@@ -257,7 +257,7 @@ contract RewardTest is TestBase {
 
     hevm.warp(starttime+rewardDuration*90/100+1);
     rewardReady = rewards.earned(address(this));
-    assertEqM(rewardReady+1, totalRewards*90/100, "rewardReady totalRewards 9/10");
+    assertEqM(rewardReady/1e8+1, totalRewards*90/100/1e8, "rewardReady totalRewards 9/10");
 
     hevm.warp(starttime+rewardDuration+2);
     rewardReady = rewards.earned(address(this));
@@ -321,8 +321,8 @@ contract RewardTest is TestBase {
     assertEqM(uniPair.balanceOf(address(this)), 0, "-4");
     assertEqM(uniPair.balanceOf(address(join)), vars.l, "-3");
 
-    assertEqM(rewards.balanceOf(address(this)), vars.v, "balanceOf vars.v");
-    assertEqM(rewards.totalSupply(), vars.v, "totalSupply vars.v");
+    assertEqM(rewards.balanceOf(address(this)), vars.v*valueMult, "balanceOf vars.v");
+    assertEqM(rewards.totalSupply(), vars.v*valueMult, "totalSupply vars.v");
 
 
     vars.v2 = 20000;
@@ -335,8 +335,8 @@ contract RewardTest is TestBase {
     assertEqM(uniPair2.balanceOf(address(this)), 0, "1");
     assertEqM(uniPair2.balanceOf(address(join2)), vars.l2, "2");
 
-    assertEqM(rewards.balanceOf(address(this)), vars.v2+vars.v, "3");
-    assertEqM(rewards.totalSupply(), vars.v2+vars.v, "4");
+    assertEqM(rewards.balanceOf(address(this)), (vars.v2+vars.v)*valueMult, "3");
+    assertEqM(rewards.totalSupply(), (vars.v2+vars.v)*valueMult, "4");
 
     vars.v22 = 1000;
     vars.l22 = addLiquidity2(vars.v22/2);
@@ -348,8 +348,8 @@ contract RewardTest is TestBase {
     assertEqM(uniPair2.balanceOf(address(this)), 0, "21");
     assertEqM(uniPair2.balanceOf(address(join2)), vars.l2+vars.l22, "22");
 
-    assertEqM(rewards.balanceOf(address(this)), vars.v22+vars.v2+vars.v, "23");
-    assertEqM(rewards.totalSupply(), vars.v22+vars.v2+vars.v, "24");
+    assertEqM(rewards.balanceOf(address(this)), (vars.v22+vars.v2+vars.v)*valueMult, "23");
+    assertEqM(rewards.totalSupply(), (vars.v22+vars.v2+vars.v)*valueMult, "24");
 
 
     vars.v3 = 200000;
@@ -366,8 +366,8 @@ contract RewardTest is TestBase {
     assertEqM(uniPair3.balanceOf(address(join3)), vars.l3, "34");
 
 
-    assertEqM(rewards.balanceOf(address(this)), vars.v3+vars.v22+vars.v2+vars.v, "35");
-    assertEqM(rewards.totalSupply(), vars.v3+vars.v22+vars.v2+vars.v, "36");
+    assertEqM(rewards.balanceOf(address(this)), (vars.v3+vars.v22+vars.v2+vars.v)*valueMult, "35");
+    assertEqM(rewards.totalSupply(), (vars.v3+vars.v22+vars.v2+vars.v)*valueMult, "36");
 
 /////////////////////
     vars.w = vars.l*30/100;
@@ -384,7 +384,7 @@ contract RewardTest is TestBase {
 
     vars.rem = sadapter.calc(address(uniPair), vars.w, 1);
 
-    assertEq(rewards.balanceOf(address(this)), vars.v3+vars.v22+vars.v2+vars.v-vars.rem);
+    assertEq(rewards.balanceOf(address(this)), (vars.v3+vars.v22+vars.v2+vars.v)*valueMult-vars.rem);
 
 /////////////////////
     vars.w3 = vars.l3*50/100;
@@ -398,7 +398,7 @@ contract RewardTest is TestBase {
 
     vars.rem3 = sadapter.calc(address(uniPair3), vars.w3, 1);
 
-    assertEq(rewards.balanceOf(address(this)), vars.v3+vars.v22+vars.v2+vars.v-vars.rem-vars.rem3);
+    assertEq(rewards.balanceOf(address(this)), (vars.v3+vars.v22+vars.v2+vars.v)*valueMult-vars.rem-vars.rem3);
 
 
 /////////////////////
@@ -417,9 +417,9 @@ contract RewardTest is TestBase {
 
     vars.rem12 = sadapter.calc(address(uniPair), vars.w12, 1);
 
-    assertEqM(rewards.balanceOf(address(this)), vars.v3+vars.v22+vars.v2+vars.v-vars.rem-vars.rem3-vars.rem12, "55");
-    assertEqM(rewards.balanceOf(address(this)), vars.v3+vars.v22+vars.v2-vars.rem3, "56");
-    assertEqM(rewards.totalSupply(), vars.v3+vars.v22+vars.v2-vars.rem3, "57");
+    assertEqM(rewards.balanceOf(address(this)), (vars.v3+vars.v22+vars.v2+vars.v)*valueMult-vars.rem-vars.rem3-vars.rem12, "55");
+    assertEqM(rewards.balanceOf(address(this)), (vars.v3+vars.v22+vars.v2)*valueMult-vars.rem3, "56");
+    assertEqM(rewards.totalSupply(), (vars.v3+vars.v22+vars.v2)*valueMult-vars.rem3, "57");
 
   }
 
@@ -438,7 +438,7 @@ contract RewardTest is TestBase {
     uniPair3.approve(address(rewards));
     uniPair4.approve(address(rewards));
 
-
+    uint errPrec = 1e5;
 
     uint uniPair3Amnt = addLiquidityCore(value1, uniPair3);
     uint uniPair4Amnt = addLiquidityCore(value2, uniPair4);
@@ -461,8 +461,8 @@ contract RewardTest is TestBase {
     assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4");
 
 
-    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3)), "uniPair3Amnt value");
-    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
+    assertEqM(2*value1*valueMult, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3)), "uniPair3Amnt value");
+    assertEqM(2*value2*valueMult, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
 
     assertEqM(rewards.earned(address(user1)), 0, "rewardReadyOnStart1 is 0");
     assertEqM(rewards.earned(address(user2)), 0, "rewardReadyOnStart2 is 0");
@@ -471,9 +471,9 @@ contract RewardTest is TestBase {
 
     uint earned1 = rewards.earned(address(user1));
     uint earned2 = rewards.earned(address(user2));
-    assertEqM(earned1, expectEarned1, "rewardReadyOnHL1 is 1/4");
-    assertEqM(earned2, expectEarned2, "rewardReadyOnHL2 is 1/4");
-    assertEqM(uint(int256(earned1+earned2)+err), totalRewards/2, "tot rewardReadyOnHL2 is 1/2");
+    assertEqM(earned1/errPrec, expectEarned1/errPrec, "rewardReadyOnHL1 is 1/4");
+    assertEqM(earned2/errPrec, expectEarned2/errPrec, "rewardReadyOnHL2 is 1/4");
+    assertEqM(uint(int256((earned1+earned2)/errPrec)+err), totalRewards/2/errPrec, "tot rewardReadyOnHL2 is 1/2");
 
     assertEqM(0, gov.balanceOf(address(user1)), "gov1 bal zero");
     assertEqM(0, gov.balanceOf(address(user2)), "gov2 bal zero");
@@ -488,7 +488,7 @@ contract RewardTest is TestBase {
     if (!claimTimeInvariant1) {
       assertEqM(rewards.earned(address(user1)), 0, "earned1 0 after claim");
     } else {
-      assertEqM(rewards.earned(address(user1)), expectEarned1, "earned1 as expected after claim");
+      assertEqM(rewards.earned(address(user1))/errPrec, expectEarned1/errPrec, "earned1 as expected after claim");
     }
     assertEqM(rewards.earned(address(user2)), 0, "earned2 0 after claim");
 
@@ -517,7 +517,7 @@ contract RewardTest is TestBase {
     if (!claimTimeInvariant1) {
       assertEqM(earned1f, 0, "rewardReadyInFuture1 is 0");
     } else {
-      assertEqM(earned1f, expectEarned1, "rewardReadyInFuture1 is 0");
+      assertEqM(earned1f/errPrec, expectEarned1/errPrec, "rewardReadyInFuture1 is not 0");
     }
     assertEqM(earned2f/totalRewardsMul+1, (totalRewards-(earned1+earned2))/totalRewardsMul, "rewardReadyInFuture2 is remain");
 
@@ -624,8 +624,8 @@ contract RewardTest is TestBase {
 
     hevm.warp(starttime+1);
 
-    assertEqM(2*value1, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3)), "uniPair3Amnt value");
-    assertEqM(2*value2, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
+    assertEqM(2*value1*valueMult, rewards.calcCheckValue(uniPair3Amnt, address(uniPair3)), "uniPair3Amnt value");
+    assertEqM(2*value2*valueMult, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
 
     if (mode == 1) {
       (bool ret, ) = address(user1).call(abi.encodeWithSelector(user1.joinHelper.selector, join3, uniPair3Amnt, address(this)));

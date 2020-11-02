@@ -106,7 +106,7 @@ contract StakingRewards is LPTokenWrapper {
         require(fairDistribution == false);
 
         fairDistribution = true;
-        fairDistributionMaxValue = _fairDistributionMaxValue;
+        fairDistributionMaxValue = _fairDistributionMaxValue*(10**decimals);
         fairDistributionTime = _fairDistributionTime;
     }
 
@@ -134,7 +134,7 @@ contract StakingRewards is LPTokenWrapper {
                 lastTimeRewardApplicable()
                     .sub(lastUpdateTime)
                     .mul(rewardRate)
-                    .mul(1e18)
+                    .mul(1e18 * (10**decimals))
                     .div(totalSupply())
             );
     }
@@ -143,7 +143,7 @@ contract StakingRewards is LPTokenWrapper {
         return
             balanceOf(account)
                 .mul(rewardPerToken().sub(userRewardPerTokenPaid[account]))
-                .div(1e18)
+                .div(1e18 * (10**decimals))
                 .add(rewards[account]);
     }
 

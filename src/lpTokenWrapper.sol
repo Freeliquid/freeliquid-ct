@@ -264,6 +264,8 @@ contract LPTokenWrapper is Initializable {
     mapping (address => PairDesc) public pairDescs;
 
 
+    uint256 public decimals = 18;
+
     uint256 private _totalSupply;
     mapping(address => uint256) private _balances;
 
