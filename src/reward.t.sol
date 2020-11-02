@@ -153,6 +153,7 @@ contract RewardTest is TestBase {
     assertEq(r, v2 * 2 * valueMult);
   }
 
+
   function testRightsForStake() public {
     uint starttime = 10;
     prepareRewarder(starttime);

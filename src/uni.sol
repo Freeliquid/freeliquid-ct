@@ -45,15 +45,47 @@ contract UniswapAdapterForStables is IAdapter {
 }
 
 
-contract SimpleAdapter is IAdapter {
+contract UniswapAdapterWithOneStable is IAdapter {
     using SafeMath for uint;
 
-    struct TokenPair {
+    struct LocalVars {
         address t0;
         address t1;
+        uint totalValue;
+        uint supply;
     }
 
-    function calc(address /*gem*/, uint value, uint factor) external view returns (uint) {
-        return value.mul(factor);
+    address public deployer;
+    address public buck;
+
+    constructor () public {
+        deployer = msg.sender;
+    }
+
+    function setup(address _buck) public {
+        require(deployer == msg.sender);
+        buck = _buck;
+        deployer = address(0);
+    }
+
+
+    function calc(address gem, uint value, uint factor) external view returns (uint) {
+        (uint112 _reserve0, uint112 _reserve1,) = UniswapV2PairLike(gem).getReserves();
+
+        LocalVars memory loc;
+        loc.t0 = UniswapV2PairLike(gem).token0();
+        loc.t1 = UniswapV2PairLike(gem).token1();
+
+        if (buck == loc.t0) {
+            loc.totalValue = uint(_reserve0).div(uint(10) ** IERC20(loc.t0).decimals());
+        } else if (buck == loc.t1) {
+            loc.totalValue = uint(_reserve1).div(uint(10) ** IERC20(loc.t1).decimals());
+        } else {
+            require(false, "gem w/o buck");
+        }
+
+        loc.supply = UniswapV2PairLike(gem).totalSupply();
+
+        return value.mul(loc.totalValue).mul(2).mul(factor).mul(1e18).div(loc.supply);
     }
 }

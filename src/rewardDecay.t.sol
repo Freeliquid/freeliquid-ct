@@ -665,6 +665,70 @@ contract RewardDecayTest is TestBase {
     rewards.initRewardAmount(1000, starttime, 10, 0);
   }
 
+  function addLiquidityOneBuck(uint usdVal, uint otherAmount, UniswapV2Pair pair) internal returns (uint, uint) {
+    (bool success0, bytes memory returndata0) = pair.token0().call(abi.encodeWithSignature("symbol()"));
+    (bool success1, bytes memory returndata1) = pair.token1().call(abi.encodeWithSignature("symbol()"));
+    assertTrue(success0 && success1);
+    assertEqM(returndata0.length, 32, "returndata0.length");
+    assertEqM(returndata1.length, 32, "returndata1.length");
+
+    bytes32 symbol0 = abi.decode(returndata0, (bytes32));
+    bytes32 symbol1 = abi.decode(returndata1, (bytes32));
+
+    uint b1;
+    uint b0;
+    uint usdIdx;
+    if (symbol1 == bytes32("VOLATILE")) {
+      b0 = bucksToPair(usdVal, DSToken(pair.token0()), pair);
+      b1 = bucksToPair(otherAmount, DSToken(pair.token1()), pair);
+      usdIdx = 0;
+    } else if (symbol0 == bytes32("VOLATILE")) {
+      b0 = bucksToPair(otherAmount, DSToken(pair.token0()), pair);
+      b1 = bucksToPair(usdVal, DSToken(pair.token1()), pair);
+      usdIdx = 1;
+    } else {
+      require(false);
+    }
+
+    uint l = sqrt(b1 * b0);
+    pair.mint(l);
+    return (l, usdIdx);
+  }
+
+  function testUniAdapterOneStable() public {
+    implUniAdapterOneStable(uniPairVolatile1);
+  }
+
+  function testUniAdapterOneStableInv() public {
+    implUniAdapterOneStable(uniPairVolatile2);
+  }
+
+
+  function implUniAdapterOneStable(UniswapV2Pair pair) public {
+    uint usdValue = 10000;
+    uint amntOther = 100;
+    (uint l, uint usdIdx) = addLiquidityOneBuck(usdValue, amntOther, pair);
+    assertEq(l, pair.totalSupply());
+
+    (uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+
+    if (usdIdx == 0)
+      assertEq(reserve0, usdValue * uint(10)**18);
+    else
+      assertEq(reserve1, usdValue * uint(10)**18);
+
+    if (usdIdx == 0)
+      assertEq(reserve1, amntOther * uint(10)**10);
+    else
+      assertEq(reserve0, amntOther * uint(10)**10);
+
+
+    uint r = sadapterOne.calc(address(pair), l, 1);
+
+    assertEqM(r, usdValue * 2 * valueMult, "usdValue * 2 * valueMult");
+  }
+
+
 
   function testRewardDecayActions() public {
     uint starttime = 100;
@@ -739,4 +803,95 @@ contract RewardDecayTest is TestBase {
     assertEqM(gov.balanceOf(address(user2)), earned2+earned2_, "gov bal u2");
   }
 
+  function testRewardDecayActionsWithVolatile1() public {
+    implRewardDecayActionsWithVolatile(1);
+  }
+
+  function testRewardDecayActionsWithVolatile10() public {
+    implRewardDecayActionsWithVolatile(10);
+  }
+
+  function testRewardDecayActionsWithVolatile100() public {
+    implRewardDecayActionsWithVolatile(100);
+  }
+
+  function testRewardDecayActionsWithVolatile10000000000000() public {
+    implRewardDecayActionsWithVolatile(10000000000000);
+  }
+
+  function implRewardDecayActionsWithVolatile(uint volatileAmnt) public {
+    uint starttime = 100;
+
+    prepareRewarder3(starttime, 10);
+
+    StakingRewardsDecay rewards2 = new StakingRewardsDecay();
+
+    uint n = 3;
+    rewards2.initialize(address(gov), n);
+    rewards2.initRewardAmount(1000, starttime, 100, 0);
+    rewards2.initRewardAmount(1000, 200, 100, 1);
+    rewards2.initRewardAmount(1000, 300, 100, 2);
+    gov.mint(address(rewards2), 3000);
+    rewards2.approveEpochsConsistency();
+
+    rewards.registerPairDesc(address(uniPairVolatile1), address(sadapterOne), 1, "1");
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "2");
+    rewards2.registerPairDesc(address(uniPair2), address(sadapter), 1, "3");
+
+
+    hevm.warp(starttime+1);
+
+    uint value1 = 10000;
+
+    uint uniAmnt1 = addLiquidityToUser(value1, user1, uniPair3);
+    uint uniAmnt2 = addLiquidityToUser(value1, user2, uniPair2);
+    (uint uniAmnt2_,) = addLiquidityOneBuck(value1, volatileAmnt, uniPairVolatile1);
+    assertEqM(uniPairVolatile1.balanceOf(address(this)), uniAmnt2_, "uniPairVolatile1.balanceOf");
+    uniPairVolatile1.transfer(address(user2), uniAmnt2_);
+
+
+    user1.stake(rewards, uniPair3, uniAmnt1);
+    user2.stake(rewards2, uniPair2, uniAmnt2);
+    user2.stake(rewards, uniPairVolatile1, uniAmnt2_);
+
+    hevm.warp(starttime+1000);
+    uint earned1 = rewards.earned(address(user1));
+    uint earned2 = rewards2.earned(address(user2));
+    uint earned2_ = rewards.earned(address(user2));
+    assertEqM(earned1, 499, "earned1");
+    assertEqM(earned2, 2990, "earned2");
+    assertEqM(earned2_, 499, "earned2_");
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.getRewardEx.selector, address(user2)),
+      "fail expected agg 2");
+
+    assertFail(address(rewards2), abi.encodeWithSelector(rewards2.getRewardEx.selector, address(user1)),
+      "fail expected agg 1");
+
+    RewardDecayAggregator rewardsArr = new RewardDecayAggregator(address(rewards), address(rewards2));
+    RewardDecayAggregator rewardsArrEnemy = new RewardDecayAggregator(address(rewards), address(rewards2));
+
+    rewards2.setupAggregator(address(rewardsArr));
+    rewards.setupAggregator(address(rewardsArr));
+
+    assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 0");
+    assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 0");
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.claimAllReward.selector, rewardsArrEnemy),
+      "fail expected u1");
+    assertFail(address(user2), abi.encodeWithSelector(user2.claimAllReward.selector, rewardsArrEnemy),
+      "fail expected u2");
+
+    assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 0");
+    assertEqM(gov.balanceOf(address(user2)), 0, "gov bal u2 0");
+
+    assertEqM(user1.earned(rewardsArr), earned1, "gov bal u1 earned");
+    assertEqM(user2.earned(rewardsArr), earned2+earned2_, "gov bal u2 earned");
+
+    user1.claimAllReward(rewardsArr);
+    user2.claimAllReward(rewardsArr);
+
+    assertEqM(gov.balanceOf(address(user1)), earned1, "gov bal u1");
+    assertEqM(gov.balanceOf(address(user2)), earned2+earned2_, "gov bal u2");
+  }
 }

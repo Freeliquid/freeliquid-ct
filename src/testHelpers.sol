@@ -85,6 +85,12 @@ contract Token4 is DSToken("TOKEN4") {
     }
 }
 
+contract TokenVolatile is DSToken("VOLATILE") {
+    constructor(uint d) public {
+      decimals = d;
+    }
+}
+
 
 contract VatMock {
     function slip(bytes32,address,int) external {
@@ -104,12 +110,17 @@ contract TestBase is DSTest {
   DSToken token2;
   DSToken token3;
   DSToken token4;
+  DSToken tokenVolatile;
   UniswapV2Pair uniPair;
   UniswapV2Pair uniPair2;
   UniswapV2Pair uniPair3;
   UniswapV2Pair uniPair4;
+  UniswapV2Pair uniPairVolatile1;
+  UniswapV2Pair uniPairVolatile2;
   DSToken gov;
   UniswapAdapterForStables sadapter;
+  UniswapAdapterWithOneStable sadapterOne;
+
   Hevm hevm;
   uint valueMult = 1e18;
 
@@ -120,12 +131,19 @@ contract TestBase is DSTest {
     token2 = new Token2(24);
     token3 = new Token3(6);
     token4 = new Token4(6);
+    tokenVolatile = new TokenVolatile(10);
     sadapter = new UniswapAdapterForStables();
+    sadapterOne = new UniswapAdapterWithOneStable();
 
     uniPair = new UniswapV2Pair(address(token0), address(token1));
     uniPair2 = new UniswapV2Pair(address(token1), address(token2));
     uniPair3 = new UniswapV2Pair(address(token0), address(token2));
     uniPair4 = new UniswapV2Pair(address(token3), address(token4));
+
+    uniPairVolatile1 = new UniswapV2Pair(address(tokenVolatile), address(token0));
+    uniPairVolatile2 = new UniswapV2Pair(address(token0), address(tokenVolatile));
+
+    sadapterOne.setup(address(token0));
 
     hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);//get hevm instance
   }
