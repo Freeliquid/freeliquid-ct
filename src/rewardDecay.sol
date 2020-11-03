@@ -264,17 +264,19 @@ contract StakingRewardsDecay is LPTokenWrapper {
         address gem,
         uint avail,
         uint locked,
-        uint lockedValue)
+        uint lockedValue,
+        uint availValue)
     {
         gem = pairNameToGem[name];
         if (gem == address(0)) {
-            return (address(0), 0, 0, 0);
+            return (address(0), 0, 0, 0, 0);
         }
 
         PairDesc storage desc = pairDescs[gem];
         locked = holder.amounts(gem, account);
         lockedValue = IAdapter(desc.adapter).calc(gem, locked, desc.factor);
         avail = IERC20(gem).balanceOf(account);
+        availValue = IAdapter(desc.adapter).calc(gem, avail, desc.factor);
     }
 
     function getRewardPerHour() public view returns (uint) {

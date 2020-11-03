@@ -293,6 +293,7 @@ contract RewardDecayTest is TestBase {
     uint avail;
     uint locked;
     uint lockedValue;
+    uint availValue;
     uint rewardPerHour;
     uint starttime;
     uint allTime;
@@ -334,13 +335,14 @@ contract RewardDecayTest is TestBase {
 
     assertEq(rewards.earned(address(user1)), 0);
 
-    (locals.gem, locals.avail, locals.locked, locals.lockedValue) =
+    (locals.gem, locals.avail, locals.locked, locals.lockedValue, locals.availValue) =
       rewards.getPairInfo("1", address(user1));
 
     locals.rewardPerHour = rewards.getRewardPerHour();
 
     assertEq(locals.gem, address(uniPair3));
     assertEqM(locals.avail, uniAmnt, "user1 avail I");
+    assertEqM(locals.availValue, 2*value1*valueMult, "user1 availValue I");
     assertEqM(locals.locked, 0, "user1 locked I");
     assertEqM(locals.lockedValue, 0, "user1 lockedValue I");
     assertEqM(locals.rewardPerHour, 3600, "user1 rewardPerHour I");
@@ -352,13 +354,14 @@ contract RewardDecayTest is TestBase {
 
     assertEqM(rewards.balanceOf(address(user1)), 2*value1*valueMult, "rewards user1 bal I");
 
-    (locals.gem, locals.avail, locals.locked, locals.lockedValue) =
+    (locals.gem, locals.avail, locals.locked, locals.lockedValue, locals.availValue) =
       rewards.getPairInfo("1", address(user1));
 
     locals.rewardPerHour = rewards.getRewardPerHour();
 
     assertEq(locals.gem, address(uniPair3));
     assertEqM(locals.avail, 0, "user1 avail II");
+    assertEqM(locals.availValue, 0, "user1 availValue II");
     assertEqM(locals.locked, uniAmnt, "user1 locked II");
     assertEqM(locals.lockedValue, 2*value1*valueMult, "user1 lockedValue II");
     assertEqM(locals.rewardPerHour, 3600, "user1 rewardPerHour II");
@@ -460,25 +463,27 @@ contract RewardDecayTest is TestBase {
     }
 
     if (user2Stake) {
-      (locals.gem, locals.avail, locals.locked, locals.lockedValue) =
+      (locals.gem, locals.avail, locals.locked, locals.lockedValue, locals.availValue) =
         rewards.getPairInfo("2", address(user2));
       locals.rewardPerHour = rewards.getRewardPerHour();
 
       assertEq(locals.gem, address(uniPair2));
       assertEqM(locals.avail, 0, "user2 avail I");
+      assertEqM(locals.availValue, 0, "user2 availValue I");
       assertEqM(locals.locked, locals.uniAmnt2, "user2 locked I");
       assertEqM(locals.lockedValue, 2*value2*valueMult, "user2 lockedValue I");
       assertEqM(locals.rewardPerHour, 3*3600, "user2 rewardPerHour I");
 
       user2.withdraw(rewards, uniPair2, locals.uniAmnt2/2);
 
-      (locals.gem, locals.avail, locals.locked, locals.lockedValue) =
+      (locals.gem, locals.avail, locals.locked, locals.lockedValue, locals.availValue) =
         rewards.getPairInfo("2", address(user2));
 
       locals.rewardPerHour = rewards.getRewardPerHour();
 
       assertEq(locals.gem, address(uniPair2));
       assertEqM(locals.avail, locals.uniAmnt2/2, "user2 avail II");
+      assertEqM(locals.availValue, value2*valueMult, "user2 availValue II");
       assertEqM(locals.locked, locals.uniAmnt2/2, "user2 locked II");
       assertEqM(locals.lockedValue, value2*valueMult, "user2 lockedValue II");
       assertEqM(locals.rewardPerHour, 3*3600, "user2 rewardPerHour II");
