@@ -22,6 +22,7 @@ contract UniswapAdapterForStables is IAdapter {
         address t1;
         uint r0;
         uint r1;
+        uint usdPrec;
     }
 
 
@@ -30,17 +31,21 @@ contract UniswapAdapterForStables is IAdapter {
         (uint112 _reserve0, uint112 _reserve1,) = UniswapV2PairLike(gem).getReserves();
 
         TokenPair memory tokenPair;
+        tokenPair.usdPrec = 10**6;
+
         tokenPair.t0 = UniswapV2PairLike(gem).token0();
         tokenPair.t1 = UniswapV2PairLike(gem).token1();
 
-        tokenPair.r0 = uint(_reserve0).div(uint(10) ** IERC20(tokenPair.t0).decimals());
-        tokenPair.r1 = uint(_reserve1).div(uint(10) ** IERC20(tokenPair.t1).decimals());
 
-        uint totalValue = tokenPair.r0.min(tokenPair.r1).mul(2); //total value in uni's reserves for stables only
+        tokenPair.r0 = uint(_reserve0).mul(tokenPair.usdPrec).div(uint(10) ** IERC20(tokenPair.t0).decimals());
+        tokenPair.r1 = uint(_reserve1).mul(tokenPair.usdPrec).div(uint(10) ** IERC20(tokenPair.t1).decimals());
+
+
+        uint totalValue = tokenPair.r0.add(tokenPair.r1); //total value in uni's reserves for stables only
 
         uint supply = UniswapV2PairLike(gem).totalSupply();
 
-        return value.mul(totalValue).mul(factor).mul(1e18).div(supply);
+        return value.mul(totalValue).mul(factor).mul(1e18).div(supply.mul(tokenPair.usdPrec));
     }
 }
 
@@ -53,10 +58,12 @@ contract UniswapAdapterWithOneStable is IAdapter {
         address t1;
         uint totalValue;
         uint supply;
+        uint usdPrec;
     }
 
     address public deployer;
     address public buck;
+
 
     constructor () public {
         deployer = msg.sender;
@@ -75,17 +82,18 @@ contract UniswapAdapterWithOneStable is IAdapter {
         LocalVars memory loc;
         loc.t0 = UniswapV2PairLike(gem).token0();
         loc.t1 = UniswapV2PairLike(gem).token1();
+        loc.usdPrec = 10**6;
 
         if (buck == loc.t0) {
-            loc.totalValue = uint(_reserve0).div(uint(10) ** IERC20(loc.t0).decimals());
+            loc.totalValue = uint(_reserve0).mul(loc.usdPrec).div(uint(10) ** IERC20(loc.t0).decimals());
         } else if (buck == loc.t1) {
-            loc.totalValue = uint(_reserve1).div(uint(10) ** IERC20(loc.t1).decimals());
+            loc.totalValue = uint(_reserve1).mul(loc.usdPrec).div(uint(10) ** IERC20(loc.t1).decimals());
         } else {
             require(false, "gem w/o buck");
         }
 
         loc.supply = UniswapV2PairLike(gem).totalSupply();
 
-        return value.mul(loc.totalValue).mul(2).mul(factor).mul(1e18).div(loc.supply);
+        return value.mul(loc.totalValue).mul(2).mul(factor).mul(1e18).div(loc.supply.mul(loc.usdPrec));
     }
 }
