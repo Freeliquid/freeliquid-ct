@@ -899,4 +899,50 @@ contract RewardDecayTest is TestBase {
     assertEqM(gov.balanceOf(address(user1)), earned1, "gov bal u1");
     assertEqM(gov.balanceOf(address(user2)), earned2+earned2_, "gov bal u2");
   }
+
+  function testRewardToWrongPair() public {
+    uint starttime = 100;
+
+    prepareRewarder3(starttime, 10);
+
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, "1");
+    rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, "2");
+
+
+    uint value = 10000;
+    uint uniAmnt2 = addLiquidityToUser(value, user1, uniPair2);
+    uint uniAmnt3 = addLiquidityToUser(value, user1, uniPair3);
+    hevm.warp(starttime+1);
+
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt3, "balanceOf(uniPair3) .");
+    assertFail(address(user1), abi.encodeWithSelector(user1.stake.selector, rewards, uniPair3, uniAmnt3),
+      "fail expected u1 p3");
+    assertFail(address(user1), abi.encodeWithSelector(user1.withdraw.selector, rewards, uniPair3, 1),
+      "fail expected w u1 p3");
+
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt3, "balanceOf(uniPair3) ..");
+
+    user1.stake(rewards, uniPair2, uniAmnt2);
+
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "3");
+
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt3, "balanceOf(uniPair3) I");
+    user1.stake(rewards, uniPair3, uniAmnt3);
+    assertEqM(uniPair3.balanceOf(address(user1)), 0, "balanceOf(uniPair3) II");
+
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "77");
+    user1.withdraw(rewards, uniPair3, uniAmnt3);
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt3, "balanceOf(uniPair3) III");
+
+    user1.stake(rewards, uniPair3, uniAmnt3);
+    assertEqM(uniPair3.balanceOf(address(user1)), 0, "balanceOf(uniPair3) IV");
+
+    rewards.registerPairDesc(address(uniPair3), address(sadapter), 0, "77");
+    user1.withdraw(rewards, uniPair3, uniAmnt3);
+    assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt3, "balanceOf(uniPair3) V");
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.stake.selector, rewards, uniPair3, uniAmnt3),
+      "fail expected u1 p3 z");
+ }
+
 }

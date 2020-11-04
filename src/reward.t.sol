@@ -166,8 +166,14 @@ contract RewardTest is TestBase {
 
     hevm.warp(starttime+1);
 
+    (bool ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.stake.selector, l2, address(uniPair3), address(this)));
+    if (ret) {
+      emit log_bytes32("stake must fail,wrong pair");
+      fail();
+    }
 
-    (bool ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.stake.selector, l, address(uniPair), address(this)));
+
+    (ret, ) = address(rewards).call(abi.encodeWithSelector(rewards.stake.selector, l, address(uniPair), address(this)));
     if (ret) {
       emit log_bytes32("stake must fail,no rights");
       fail();
