@@ -986,6 +986,11 @@ contract RewardDecayTest is TestBase {
 
     assertEqM(uniPair2.balanceOf(address(user1)), 1, "balanceOf(uniPair2) ..");
     assertEqM(uniPair3.balanceOf(address(user2)), 1, "balanceOf(uniPair3) ..");
+
+    User user3 = new User();
+    assertFail(address(user3), abi.encodeWithSelector(user3.withdraw.selector, rewards, uniPair2, 1),
+      "fail expected w u3 p2");
+
   }
 
 }
