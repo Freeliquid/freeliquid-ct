@@ -47,6 +47,19 @@ contract SpotMock {
   }
 }
 
+contract RegistryMock {
+  bytes32[] public ilks;
+
+  constructor () public {
+    ilks.push("ilk0");
+    ilks.push("ilk1");
+  }
+
+
+  function list() external view returns (bytes32[] memory) {
+    return ilks;
+  }
+}
 
 contract PriceProviderTest is TestBase {
 
@@ -55,6 +68,7 @@ contract PriceProviderTest is TestBase {
 
   SpotMock spot;
   PriceProvider provider;
+  RegistryMock registry;
 
 
   function setUp() public {
@@ -64,20 +78,19 @@ contract PriceProviderTest is TestBase {
     user2 = new User();
     spot = new SpotMock();
     provider = new PriceProvider();
+    registry = new RegistryMock();
   }
 
   function testPriceProviderBase() public {
     uint updatePeriod = 3600;
     uint rewardTime = 72000;
-    bytes32[] memory ilks = new bytes32[](2);
-    ilks[0] ="ilk0";
-    ilks[1] ="ilk1";
+    bytes32[] memory ilks = registry.list();
 
     uint chunks = rewardTime / updatePeriod;
 
     uint reward = 100000000;
     gov.mint(address(provider), reward);
-    provider.setup(address(gov), address(spot), updatePeriod, rewardTime, ilks);
+    provider.setup(address(gov), address(spot), address(registry), updatePeriod, rewardTime);
 
     hevm.warp(1);
 

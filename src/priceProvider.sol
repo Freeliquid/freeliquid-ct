@@ -9,13 +9,19 @@ interface SpotLike {
     function poke(bytes32 ilk) external;
 }
 
+interface RegistryLike {
+    function list() external view returns (bytes32[] memory);
+}
+
+
+
 contract PriceProvider {
 
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     mapping(address => uint) public rewards;
-    bytes32[] public ilks;
+    RegistryLike public registry;
     SpotLike public spot;
     address public gov;
     address public owner;
@@ -32,13 +38,13 @@ contract PriceProvider {
         owner = msg.sender;
     }
 
-    function setup(address _gov, address _spot, uint _updatePeriod, uint _rewardTime, bytes32[] memory _ilks) public {
+    function setup(address _gov, address _spot, address _registry, uint _updatePeriod, uint _rewardTime) public {
         require(owner == msg.sender, "auth-error");
 
         require(_gov != address(0), "gov is null");
         require(_spot != address(0), "spot is null");
         require(_updatePeriod != 0, "updatePeriod is zero");
-        require(_ilks.length < 16, "too big size of ilks");
+        require(_registry != address(0), "registry is null");
         require(_rewardTime > _updatePeriod*10, "rewardTime vs updatePeriod inconsistence");
 
         rewardToDistribute = IERC20(_gov).balanceOf(address(this));
@@ -46,11 +52,11 @@ contract PriceProvider {
 
         uint chunks = _rewardTime.div(_updatePeriod);
 
+        registry = RegistryLike(_registry);
         spot = SpotLike(_spot);
         gov = _gov;
         rewardTime = _rewardTime;
         updatePeriod = _updatePeriod;
-        ilks = _ilks;
         rewardPerPeriod = rewardToDistribute.div(chunks);
         require(rewardPerPeriod > 0, "rewardPerPeriod is zero");
     }
@@ -69,6 +75,7 @@ contract PriceProvider {
 
     function poke() public {
 
+        bytes32[] memory ilks = registry.list();
         for (uint i=0; i<ilks.length; i++) {
             spot.poke(ilks[i]);
         }
