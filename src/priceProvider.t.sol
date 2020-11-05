@@ -93,8 +93,12 @@ contract PriceProviderTest is TestBase {
 
     uint smallStep = 10;
     hevm.warp(smallStep);
+    spot.setCode(2);
     user2.poke(provider);
+    assertTrue(spot.checkAll(ilks));
+    spot.setCode(3);
     user1.poke(provider);
+    assertTrue(spot.checkAll(ilks));
     user1.getReward(provider);
     user2.getReward(provider);
 
@@ -102,8 +106,15 @@ contract PriceProviderTest is TestBase {
     assertEqM(gov.balanceOf(address(user2)), 0, "u2 bal aa");
 
     hevm.warp(updatePeriod+smallStep-1);
+
+    spot.setCode(4);
     user2.poke(provider);
+    assertTrue(spot.checkAll(ilks));
+
+    spot.setCode(5);
     user1.poke(provider);
+    assertTrue(spot.checkAll(ilks));
+
     user1.getReward(provider);
     user2.getReward(provider);
 
