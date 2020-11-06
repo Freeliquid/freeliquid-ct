@@ -279,6 +279,18 @@ contract StakingRewardsDecay is LPTokenWrapper {
         availValue = IAdapter(desc.adapter).calc(gem, avail, desc.factor);
     }
 
+    function getPrice(bytes32 name) public view returns (uint)
+    {
+        address gem = pairNameToGem[name];
+        if (gem == address(0)) {
+            return 0;
+        }
+
+        PairDesc storage desc = pairDescs[gem];
+        return IAdapter(desc.adapter).calc(gem, 1, desc.factor);
+    }
+
+
     function getRewardPerHour() public view returns (uint) {
         EpochData storage epoch = epochs[calcCurrentEpoch()];
         return epoch.rewardRate * 3600;
