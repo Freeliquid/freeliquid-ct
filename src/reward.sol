@@ -148,12 +148,16 @@ contract StakingRewards is LPTokenWrapper {
     }
 
     function testFairDistribution(address usr, address gem, uint amount) public view returns (bool){
+        return testFairDistributionByValue(usr, calcCheckValue(amount, gem));
+    }
+
+    function testFairDistributionByValue(address usr, uint value) public view returns (bool){
         if (fairDistribution) {
-            uint value = calcCheckValue(amount, gem);
             return balanceOf(usr).add(value) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime);
         }
         return true;
     }
+
 
     function checkFairDistribution(address usr) public view checkStart {
         if (fairDistribution) {
