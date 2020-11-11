@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
-from matplotlib.dates import DateFormatter, MonthLocator, YearLocator
+from matplotlib.dates import DateFormatter, MonthLocator, YearLocator, DayLocator, RRuleLocator, WeekdayLocator, num2date
 
 import functools
 
@@ -90,10 +90,23 @@ def integral_data(stop, step):
     df = pd.DataFrame(d, columns=["x", "i"]).set_index("x")
     return df.i
 
+class DateFormatterEx (DateFormatter):
+    def __init__(self):
+        super().__init__("%m")
+
+    def __call__(self, x, pos=0):
+        if x == 0:
+            raise ValueError('DateFormatter found a value of x=0, which is '
+                             'an illegal date; this usually occurs because '
+                             'you have not informed the axis that it is '
+                             'plotting dates, e.g., with ax.xaxis_date()')
+        monthid = num2date(x, self.tz).strftime(self.fmt)
+        return "month "+str(int(monthid)-1)
+
 
 def d_analize(targetCirculate, days, name, stepDays, digits=8):
     panes = 2
-    fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 10))
+    fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=False, squeeze=True, figsize=(30, 20))
 
 
     step = 3600*24*stepDays
@@ -118,7 +131,8 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     df["i"] =  integral_data(stop, step) * starty / (10**digits)
 
 
-    startUnixTime = datetime.utcnow().timestamp()
+    # startUnixTime = datetime.utcnow().timestamp()
+    startUnixTime = 3600*24*5
     df["dt"] = pd.to_datetime(df.index+startUnixTime, unit="s")
     df = df.set_index("dt")
 
@@ -128,22 +142,31 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     # df = df.resample("1d").last().fillna(method='ffill')
     # print(df)
 
-    # for ax in axs:
-    #     month = MonthLocator()
-    #     year = YearLocator()
-    #     fmt1 = DateFormatter('%Y')
-    #     fmt2 = DateFormatter('%b')
-    #     ax.xaxis.set_major_locator(year)
-    #     ax.xaxis.set_major_formatter(fmt1)
-    #     ax.xaxis.set_minor_locator(month)
-    #     ax.xaxis.set_minor_formatter(fmt2)
+    for ax in axs:
+        month = MonthLocator()
+        year = YearLocator()
+        day = DayLocator()
+        day2 = DayLocator(bymonthday=1)
+        # rrule = RRuleLocator()
+        if days < 100:
+            fmt1 = DateFormatter('week %W')
+            week = WeekdayLocator()
+            ax.xaxis.set_major_locator(week)
+            ax.xaxis.set_major_formatter(fmt1)
+        else:
+            fmt2 = DateFormatterEx()
+            ax.xaxis.set_major_locator(day2)
+            ax.xaxis.set_major_formatter(fmt2)
 
-    x_compat=False
+        ax.xaxis.set_minor_locator(day)
+        # ax.xaxis.set_minor_formatter(fmt2)
+
+    x_compat=True
 
 
-    df.perHour.plot(ax=axs[0], color="red", x_compat=x_compat)
+    df.perHour.plot(ax=axs[0], color="red", lw=9, x_compat=x_compat)
     # df.s.plot(ax=axs[1], color="red", lw=3, x_compat=x_compat)
-    df.i.plot(ax=axs[1], color="blue", x_compat=x_compat)
+    df.i.plot(ax=axs[1], color="blue", lw=9, x_compat=x_compat)
     if panes > 2:
         (df.i-df.s).plot(ax=axs[2], color="blue", x_compat=x_compat)
 
@@ -162,7 +185,17 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
 
     for ax in axs:
         ax.axhline(y=0, lw=1.0)
-        ax.axvline(x=pd.to_datetime(stop+startUnixTime, unit="s"), lw=1.0)
+
+        # ax.axvline(x=pd.to_datetime(stop+startUnixTime, unit="s"), lw=1.0)
+        ax.axvline(x=pd.to_datetime(startUnixTime, unit="s"), lw=1.0)
+
+        ax.set_xlim(pd.to_datetime(startUnixTime, unit="s"), pd.to_datetime(stop+startUnixTime-3600*24*7, unit="s"))
+
+
+        for item in ([ax.xaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
+            item.set_fontsize(32)
+
+    axs[1].axhline(y=targetCirculate, lw=1.0)
 
     distrib.to_csv(name+"_distrib.csv")
     df.to_csv(name+".csv")
