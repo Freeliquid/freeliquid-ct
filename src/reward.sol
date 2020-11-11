@@ -147,6 +147,14 @@ contract StakingRewards is LPTokenWrapper {
                 .add(rewards[account]);
     }
 
+    function testFairDistribution(address usr, address gem, uint amount) public view returns (bool){
+        if (fairDistribution) {
+            uint value = calcCheckValue(amount, gem);
+            return balanceOf(usr).add(value) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime);
+        }
+        return true;
+    }
+
     function checkFairDistribution(address usr) public view checkStart {
         if (fairDistribution) {
             require(balanceOf(usr) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime),

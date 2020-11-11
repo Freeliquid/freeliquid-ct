@@ -683,6 +683,8 @@ contract RewardTest is TestBase {
     assertEqM(2*value2*valueMult, rewards.calcCheckValue(uniPair4Amnt, address(uniPair4)), "uniPair4Amnt value");
 
     if (mode == 1) {
+      assertTrue(!rewards.testFairDistribution(address(user1), address(uniPair3), uniPair3Amnt));
+
       (bool ret, ) = address(user1).call(abi.encodeWithSelector(user1.joinHelper.selector, join3, uniPair3Amnt, address(this)));
       if (ret) {
         emit log_bytes32("user1.joinHelper fail expected");
@@ -693,6 +695,7 @@ contract RewardTest is TestBase {
       assertEqM(0, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3 0");
 
     } else {
+      assertTrue(rewards.testFairDistribution(address(user1), address(uniPair3), uniPair3Amnt));
       user1.joinHelper(join3, uniPair3Amnt, address(this));
 
       assertEqM(0, uniPair3.balanceOf(address(user1)), "uniPair3Amnt 0");
@@ -700,6 +703,7 @@ contract RewardTest is TestBase {
     }
 
     if (mode == 2) {
+      assertTrue(!rewards.testFairDistribution(address(user2), address(uniPair4), uniPair4Amnt));
       (bool ret, ) = address(user2).call(abi.encodeWithSelector(user2.joinHelper.selector, join4, uniPair4Amnt, address(this)));
       if (ret) {
         emit log_bytes32("user2.joinHelper fail expected");
@@ -710,6 +714,7 @@ contract RewardTest is TestBase {
       assertEqM(0, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4 0");
 
     } else {
+      assertTrue(rewards.testFairDistribution(address(user2), address(uniPair4), uniPair4Amnt));
       user2.joinHelper(join4, uniPair4Amnt, address(this));
 
       assertEqM(0, uniPair4.balanceOf(address(user2)), "uniPair4Amnt 0");
@@ -719,12 +724,14 @@ contract RewardTest is TestBase {
     hevm.warp(starttime+fairDistributionTime+1);
 
     if (mode == 1) {
+      assertTrue(rewards.testFairDistribution(address(user1), address(uniPair3), uniPair3Amnt));
       user1.joinHelper(join3, uniPair3Amnt, address(this));
       assertEqM(0, uniPair3.balanceOf(address(user1)), "uniPair3Amnt 0");
       assertEqM(uniPair3Amnt, uniPair3.balanceOf(address(join3)), "uniPair3Amnt join3");
     }
 
     if (mode == 2) {
+      assertTrue(rewards.testFairDistribution(address(user2), address(uniPair4), uniPair4Amnt));
       user2.joinHelper(join4, uniPair4Amnt, address(this));
       assertEqM(0, uniPair4.balanceOf(address(user2)), "uniPair4Amnt 0");
       assertEqM(uniPair4Amnt, uniPair4.balanceOf(address(join4)), "uniPair4Amnt join4");
