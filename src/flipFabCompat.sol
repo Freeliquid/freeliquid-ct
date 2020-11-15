@@ -5,10 +5,17 @@ import {Flipper} from "dss/flip.sol";
 
 contract FlipFabCompat {
 	address public cat;
+	address public deployer;
 
     // --- Init ---
-    constructor(address cat_) public {
+    constructor() public {
+        deployer = msg.sender;
+    }
+
+    function setCat(address cat_) public {
+    	require(deployer == msg.sender, "auth-error");
         cat = cat_;
+        deployer = address(0);
     }
 
     function newFlip(address vat, bytes32 ilk) public returns (Flipper flip) {
