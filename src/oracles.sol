@@ -118,7 +118,7 @@ contract UniswapAdapterPriceOracle_USDT_Buck {
         uint usdtPrice = uint(answerUSDETH).mul(uint(answerETHUSDT));
         uint r1 = tokenPair.usdtReserve.mul(usdPrec).mul(usdtPrice).div(price1Div);
 
-        uint totalValue = r0.add(r1); //total value in uni's reserves
+        uint totalValue = r0.min(r1).mul(2); //total value in uni's reserves
         uint supply = gem.totalSupply();
 
         return (bytes32(totalValue.mul(10**(uint(gem.decimals()).add(18))).div(supply.mul(usdPrec))), true);
@@ -172,7 +172,7 @@ contract UniswapAdapterPriceOracle_Buck_Buck {
         uint r0 = uint(_reserve0).mul(usdPrec).div(uint(10) ** uint(IERC20(tokenPair.t0).decimals()));
         uint r1 = uint(_reserve1).mul(usdPrec).div(uint(10) ** uint(IERC20(tokenPair.t1).decimals()));
 
-        uint totalValue = r0.add(r1); //total value in uni's reserves
+        uint totalValue = r0.min(r1).mul(2); //total value in uni's reserves
         uint supply = gem.totalSupply();
 
         return (bytes32(totalValue.mul(10**(uint(gem.decimals()).add(18))).div(supply.mul(usdPrec))), true);

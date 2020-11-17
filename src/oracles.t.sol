@@ -221,7 +221,7 @@ contract OracleTest is DSTest {
     assertEq(uni.totalSupply(), 1000*(10**18));
     assertEq(t0.totalSupply(), 1000*(10**6));
     assertEq(t1.totalSupply(), 2000*(10**6));
-    assertEq(uint(val), uint(3 * 10**18));
+    assertEq(uint(val), uint(2 * 10**18)); //use pool part with min value
   }
 
   function implDAI_USDT(UniswapToken uniRef, OracleLike o, bool inv) public {
@@ -259,7 +259,7 @@ contract OracleTest is DSTest {
     assertEq(uni.totalSupply(), 1000*(10**18));
     assertEq(t0.totalSupply(), 1000*(10**6));
     assertEq(t1.totalSupply(), 1000*(10**6));
-    assertEq(val, uint(15 * 10**17));
+    assertEq(val, uint(10 * 10**17));
   }
 
   function test3() public {

@@ -41,7 +41,7 @@ contract UniswapAdapterForStables is IAdapter {
         tokenPair.r1 = uint(_reserve1).mul(tokenPair.usdPrec).div(uint(10) ** IERC20(tokenPair.t1).decimals());
 
 
-        uint totalValue = tokenPair.r0.add(tokenPair.r1); //total value in uni's reserves for stables only
+        uint totalValue = tokenPair.r0.min(tokenPair.r1).mul(2); //total value in uni's reserves for stables only
 
         uint supply = UniswapV2PairLike(gem).totalSupply();
 
