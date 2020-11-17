@@ -19,7 +19,7 @@ contract CatStub {
 }
 
 
-contract RewardDecayTest is TestBase {
+contract LiquidationTest is TestBase {
 
     VatStub vat;
     Flipper flip;
