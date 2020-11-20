@@ -361,6 +361,13 @@ contract RewardTest is TestBase {
     rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, address(join2));
     rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, address(join3));
 
+    rewards.resetDeployer();
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.registerPairDesc.selector,
+        address(uniPair), address(sadapter), 1, address(join)),
+               "resetDeployer fail expected");
+
+
     uniPair.approve(address(rewards));
     uniPair2.approve(address(rewards));
     uniPair3.approve(address(rewards));

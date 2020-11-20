@@ -213,6 +213,14 @@ contract StakingRewardsDecay is LPTokenWrapper {
         epochInited = EPOCHCOUNT;
     }
 
+    function resetDeployer() public {
+        // only deployer can do it
+        require(deployer == msg.sender);
+        require(epochInited == EPOCHCOUNT);
+        deployer = address(0);
+    }
+
+
     function calcCurrentEpoch() public view returns (uint res){
         res = 0;
         for (uint i=currentEpoch; i < EPOCHCOUNT && epochs[i].starttime <= block.timestamp; i++) {

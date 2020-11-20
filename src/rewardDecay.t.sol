@@ -310,6 +310,13 @@ contract RewardDecayTest is TestBase {
     rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
     rewards.registerPairDesc(address(uniPair2), address(sadapter), 1, "2");
 
+    rewards.resetDeployer();
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.registerPairDesc.selector,
+        address(uniPair), address(sadapter), 1, "3"),
+               "resetDeployer fail expected");
+
+
     assertEqM(uniPair3.balanceOf(address(this)), 0, "this bal 1");
 
     hevm.warp(locals.starttime+1);

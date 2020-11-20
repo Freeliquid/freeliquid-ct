@@ -120,6 +120,11 @@ contract StakingRewards is LPTokenWrapper {
         pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker, name:"dummy"});
     }
 
+    function resetDeployer() public {
+        // only deployer can do it
+        require(deployer == msg.sender);
+        deployer = address(0);
+    }
 
     function lastTimeRewardApplicable() public view returns (uint256) {
         return Math.min(block.timestamp, periodFinish);
