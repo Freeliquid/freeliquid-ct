@@ -40,6 +40,15 @@ contract User {
     return rewards.getReward();
   }
 
+  function relyReward(StakingRewardsDecay rewards, address usr) public returns (uint256) {
+    rewards.rely(usr);
+  }
+
+  function registerPairDesc(StakingRewardsDecay rewards, address gem, address adapter, uint factor, bytes32 name) public {
+    rewards.registerPairDesc(gem, adapter, factor,name);
+  }
+
+
   function claimAllReward(RewardDecayAggregator rewards) public {
     return rewards.claimReward();
   }
@@ -238,6 +247,57 @@ contract RewardDecayTest is TestBase {
   }
 
 
+  function testGovLaterRegister() public {
+    uint starttime = 10;
+    uint alltime = prepareRewarder3(starttime, 10);
+    assertTrue(address(rewards.gov()) == address(gov));
+
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, "1");
+
+
+    hevm.warp(starttime);
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.registerPairDesc.selector,
+                                    rewards, address(uniPair2), address(sadapter), 1, "2"),
+               "no auth u1");
+
+    rewards.rely(address(user1));
+
+    assertFail(address(user2), abi.encodeWithSelector(user2.registerPairDesc.selector,
+                                    rewards, address(uniPair2), address(sadapter), 1, "2"),
+               "no auth u2");
+
+
+    rewards.resetDeployer();
+
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.rely.selector, address(user2)),
+               "rely after resetDeployer");
+
+    user1.relyReward(rewards, address(user2));
+
+    uint value1 = 10000;
+
+    uint uniAmnt = addLiquidityToUser(value1, user1, uniPair);
+    uint uniAmnt2 = addLiquidityToUser(value1, user2, uniPair2);
+
+
+    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
+    user1.stake(rewards, uniPair, uniAmnt);
+    assertEqM(uniPair.balanceOf(address(rewards.holder())), uniAmnt, "uniPair bal hld uniAmnt");
+
+    hevm.warp(starttime+alltime/2);
+
+    user2.registerPairDesc(rewards, address(uniPair2), address(sadapter), 1, "2");
+    user2.stake(rewards, uniPair2, uniAmnt2);
+
+
+    hevm.warp(starttime+alltime+100);
+
+
+    assertEqM(rewards.earned(address(user1)), totalRewards*2/3, "earned 1");
+    assertEqM(rewards.earned(address(user2)), totalRewards/3, "earned 2");
+  }
 
   function addLiquidityToUser(uint value, User user, UniswapV2Pair pair) public returns (uint) {
 

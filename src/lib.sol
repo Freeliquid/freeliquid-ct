@@ -41,3 +41,15 @@ contract LibNote {
         }
     }
 }
+
+contract Auth is LibNote {
+    mapping (address => uint256) public wards;
+    address public deployer;
+
+    function rely(address usr) external note auth { wards[usr] = 1; }
+    function deny(address usr) external note auth { wards[usr] = 0; }
+    modifier auth {
+        require(wards[msg.sender] == 1 || deployer == msg.sender, "Auth/not-authorized");
+        _;
+    }
+}

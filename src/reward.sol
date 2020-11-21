@@ -48,7 +48,9 @@ import "./lpTokenWrapper.sol";
 import "./lib.sol";
 
 
-contract StakingRewards is LPTokenWrapper {
+contract StakingRewards is LPTokenWrapper, Auth {
+    // --- Auth ---
+
     address public gov;
     uint256 public duration;
 
@@ -62,7 +64,7 @@ contract StakingRewards is LPTokenWrapper {
     bool public fairDistribution = false;
     uint256 public fairDistributionMaxValue = 0;
     uint256 public fairDistributionTime = 0;
-    address public deployer;
+
 
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
@@ -110,10 +112,7 @@ contract StakingRewards is LPTokenWrapper {
         fairDistributionTime = _fairDistributionTime;
     }
 
-    function registerPairDesc(address gem, address adapter, uint factor, address staker) public {
-        // only deployer can do it
-        require(deployer == msg.sender);
-
+    function registerPairDesc(address gem, address adapter, uint factor, address staker) public auth {
         require(gem != address(0x0));
         require(adapter != address(0x0));
 

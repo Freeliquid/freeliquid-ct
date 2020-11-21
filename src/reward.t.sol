@@ -25,6 +25,14 @@ contract User {
   function getReward(StakingRewards rewards) public returns (uint256) {
     return rewards.getReward();
   }
+
+  function registerPairDesc(StakingRewards rewards, address gem, address adapter, uint factor, address staker) public {
+    rewards.registerPairDesc(gem, adapter, factor, staker);
+  }
+
+  function relyReward(StakingRewards rewards, address usr) public returns (uint256) {
+    rewards.rely(usr);
+  }
 }
 
 contract RewardTest is TestBase {
@@ -109,6 +117,96 @@ contract RewardTest is TestBase {
     j.join(owner, l);
   }
 
+  function testGovLaterRegisterPreStakeMode0() public {
+    implGovLaterRegister(0);
+  }
+  function testGovLaterRegisterPreStakeMode1() public {
+    implGovLaterRegister(1);
+  }
+  function testGovLaterRegisterPreStakeMode2() public {
+    implGovLaterRegister(2);
+  }
+
+  function implGovLaterRegister(uint preStakeMode) public {
+
+    uint starttime = 10;
+    prepareRewarder(starttime);
+
+    uniPair.approve(address(rewards));
+    uniPair2.approve(address(rewards));
+
+
+    uint alltime = rewardDuration;
+    assertTrue(address(rewards.gov()) == address(gov));
+
+    rewards.registerPairDesc(address(uniPair), address(sadapter), 1, address(join));
+
+
+    hevm.warp(starttime+1);
+
+    assertFail(address(user1), abi.encodeWithSelector(user1.registerPairDesc.selector,
+                                    rewards, address(uniPair2), address(sadapter), 1, address(join2)),
+               "no auth u1");
+
+    rewards.rely(address(user1));
+
+    assertFail(address(user2), abi.encodeWithSelector(user2.registerPairDesc.selector,
+                                    rewards, address(uniPair2), address(sadapter), 1, address(join2)),
+               "no auth u2");
+
+
+    rewards.resetDeployer();
+
+
+    assertFail(address(rewards), abi.encodeWithSelector(rewards.rely.selector, address(user2)),
+               "rely after resetDeployer");
+
+    user1.relyReward(rewards, address(user2));
+
+    uint value = 1000000;
+
+    uint uniPairAmnt = addLiquidityCore(value, uniPair);
+    uint uniPair2Amnt = addLiquidityCore(value, uniPair2);
+    uniPair.transfer(address(user1), uniPairAmnt);
+    uniPair2.transfer(address(user2), uniPair2Amnt);
+
+    assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal");
+    user1.joinHelper(join, uniPairAmnt, address(this));
+    assertEqM(uniPair.balanceOf(address(join)), uniPairAmnt, "uniPair bal uniAmnt");
+
+    assertEqM(rewards.balanceOf(address(user1)), value*2*1e18, "rewards bal u1");
+
+    if (preStakeMode > 0) {
+      user2.joinHelper(join2, uniPair2Amnt, address(this));
+      //zero b/c pair is not registered
+      assertEqM(rewards.balanceOf(address(user2)), 0, "rewards bal u2 zero");
+      assertEqM(uniPair2.balanceOf(address(join2)), uniPair2Amnt, "uniPair2 bal uniAmnt2");
+    }
+
+
+    hevm.warp(starttime+1+alltime/2);
+    assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 1 hl2");
+
+    if (preStakeMode == 1)
+      user2.exit(join2, uniPair2Amnt);
+
+    user2.registerPairDesc(rewards, address(uniPair2), address(sadapter), 1, address(join2));
+
+    if (preStakeMode == 2)
+      user2.exit(join2, uniPair2Amnt);
+
+    assertEqM(uniPair2.balanceOf(address(join2)), 0, "uniPair2 bal uniAmnt2 zero");
+    assertEqM(rewards.balanceOf(address(user2)), 0, "rewards bal u2 zero");
+    user2.joinHelper(join2, uniPair2Amnt, address(this));
+    assertEqM(rewards.balanceOf(address(user2)), value*2*1e18, "rewards bal u2 II");
+    assertEqM(uniPair2.balanceOf(address(join2)), uniPair2Amnt, "uniPair2 bal uniAmnt2 II");
+
+    hevm.warp(starttime+alltime+100);
+
+
+    assertEqM(rewards.earned(address(user1))/1e18+1, totalRewards*3/4/1e18, "earned 1");
+    assertEqM(rewards.earned(address(user2))/1e18+1, totalRewards/4/1e18, "earned 2");
+  }
 
   function testUniAdapter() public {
     uint v = 10000;

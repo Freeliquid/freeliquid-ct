@@ -26,11 +26,10 @@ pragma solidity ^0.5.12;
 
 import "./lpTokenWrapper.sol";
 import "./rewardsDecayHolder.sol";
+import "./lib.sol";
 
-
-contract StakingRewardsDecay is LPTokenWrapper {
+contract StakingRewardsDecay is LPTokenWrapper, Auth {
     address public gov;
-    address public deployer;
     address public aggregator;
     uint256 public totalRewards = 0;
 
@@ -250,10 +249,7 @@ contract StakingRewardsDecay is LPTokenWrapper {
     }
 
 
-    function registerPairDesc(address gem, address adapter, uint factor, bytes32 name) public {
-        // only deployer can do it
-        require(deployer == msg.sender);
-
+    function registerPairDesc(address gem, address adapter, uint factor, bytes32 name) public auth {
         require(gem != address(0x0));
         require(adapter != address(0x0));
 
