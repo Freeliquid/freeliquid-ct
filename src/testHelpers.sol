@@ -3,6 +3,8 @@ pragma solidity ^0.5.10;
 import "ds-test/test.sol";
 import "ds-token/token.sol";
 import "./uni.sol";
+import "./gemForRewardChecker.sol";
+
 
 contract Hevm {
     function warp(uint256) public;
@@ -102,6 +104,16 @@ contract VatMock {
 contract USDN is DSToken("USDN") {
 }
 
+
+contract UniForRewardCheckerTest is UniForRewardCheckerBase {
+
+    function add(DSToken token) public {
+      tokens[address(token)]=true;
+    }
+}
+
+
+
 contract TestBase is DSTest {
 
 
@@ -120,6 +132,7 @@ contract TestBase is DSTest {
   DSToken gov;
   UniswapAdapterForStables sadapter;
   UniswapAdapterWithOneStable sadapterOne;
+  GemForRewardChecker rewardCheckerTest;
 
   Hevm hevm;
   uint valueMult = 1e18;
@@ -132,6 +145,20 @@ contract TestBase is DSTest {
     token3 = new Token3(6);
     token4 = new Token4(6);
     tokenVolatile = new TokenVolatile(10);
+
+    UniForRewardCheckerTest singleChecker = new UniForRewardCheckerTest();
+    singleChecker.add(token0);
+    singleChecker.add(token1);
+    singleChecker.add(token2);
+    singleChecker.add(token3);
+    singleChecker.add(token4);
+    singleChecker.add(tokenVolatile);
+    singleChecker.add(gov);
+
+    rewardCheckerTest = new GemForRewardChecker();
+    rewardCheckerTest.addChecker(address(singleChecker));
+
+
     sadapter = new UniswapAdapterForStables();
     sadapterOne = new UniswapAdapterWithOneStable();
 

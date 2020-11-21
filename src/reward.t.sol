@@ -57,6 +57,8 @@ contract RewardTest is TestBase {
     user2 = new User();
 
     rewards = new StakingRewards();
+    rewards.setupGemForRewardChecker(address(rewardCheckerTest));
+
     address vat = address(new VatMock());
 
     join = new GemJoinWithReward(vat, "testilk", address(uniPair), address(rewards));

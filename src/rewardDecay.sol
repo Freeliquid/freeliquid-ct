@@ -119,6 +119,11 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
         initEpoch(reward, starttime, duration, idx);
     }
 
+    function setupGemForRewardChecker(address a) public {
+        require(deployer == msg.sender);
+        gemForRewardChecker = IGemForRewardChecker(a);
+    }
+
     function initEpoch(uint256 reward, uint256 starttime, uint256 duration, uint256 idx) internal
     {
         require(idx < EPOCHCOUNT, "idx < EPOCHCOUNT");
@@ -250,8 +255,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
 
 
     function registerPairDesc(address gem, address adapter, uint factor, bytes32 name) public auth {
-        require(gem != address(0x0));
-        require(adapter != address(0x0));
+        require(gem != address(0x0), "gem is null");
+        require(adapter != address(0x0), "adapter is null");
+
+        require(checkGem(gem), "bad gem");
 
         require(pairNameToGem[name] == address(0) || pairNameToGem[name] == gem, "duplicate name");
 

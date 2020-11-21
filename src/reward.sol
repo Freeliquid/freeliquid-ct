@@ -102,6 +102,11 @@ contract StakingRewards is LPTokenWrapper, Auth {
         initRewardAmount(_initreward);
     }
 
+    function setupGemForRewardChecker(address a) public {
+        require(deployer == msg.sender);
+        gemForRewardChecker = IGemForRewardChecker(a);
+    }
+
     function setupFairDistribution(uint256 _fairDistributionMaxValue, uint256 _fairDistributionTime) public {
         // only deployer can initialize
         require(deployer == msg.sender);
@@ -113,8 +118,10 @@ contract StakingRewards is LPTokenWrapper, Auth {
     }
 
     function registerPairDesc(address gem, address adapter, uint factor, address staker) public auth {
-        require(gem != address(0x0));
-        require(adapter != address(0x0));
+        require(gem != address(0x0), "gem is null");
+        require(adapter != address(0x0), "adapter is null");
+
+        require(checkGem(gem), "bad gem");
 
         pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker, name:"dummy"});
     }

@@ -72,10 +72,12 @@ contract RewardDecayTest is TestBase {
   function setUp() public {
     super.setUp();
 
+
     user1 = new User();
     user2 = new User();
 
     rewards = new StakingRewardsDecay();
+    rewards.setupGemForRewardChecker(address(rewardCheckerTest));
   }
 
 
@@ -808,6 +810,7 @@ contract RewardDecayTest is TestBase {
     prepareRewarder3(starttime, 10);
 
     StakingRewardsDecay rewards2 = new StakingRewardsDecay();
+    rewards2.setupGemForRewardChecker(address(rewardCheckerTest));
 
     uint n = 3;
     rewards2.initialize(address(gov), n);
@@ -897,6 +900,7 @@ contract RewardDecayTest is TestBase {
     prepareRewarder3(starttime, 10);
 
     StakingRewardsDecay rewards2 = new StakingRewardsDecay();
+    rewards2.setupGemForRewardChecker(address(rewardCheckerTest));
 
     uint n = 3;
     rewards2.initialize(address(gov), n);

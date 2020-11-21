@@ -269,6 +269,11 @@ contract LPTokenWrapper is Initializable {
     uint256 private _totalSupply;
     mapping(address => uint256) private _balances;
 
+    IGemForRewardChecker public gemForRewardChecker;
+
+    function checkGem(address gem) internal view returns(bool) {
+        return gemForRewardChecker.check(gem);
+    }
 
     function totalSupply() public view returns (uint256) {
         return _totalSupply;
