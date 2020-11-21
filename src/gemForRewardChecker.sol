@@ -3,7 +3,7 @@ pragma solidity ^0.5.12;
 contract GemForRewardChecker {
 
 	address[] public checkers;
-	address deployer;
+	address public deployer;
 
 	constructor () public {
 		deployer = msg.sender;
