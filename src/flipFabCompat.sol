@@ -2,10 +2,9 @@ pragma solidity >=0.5.12;
 
 import {Flipper} from "dss/flip.sol";
 
-
 contract FlipFabCompat {
-	address public cat;
-	address public deployer;
+    address public cat;
+    address public deployer;
 
     // --- Init ---
     constructor() public {
@@ -13,7 +12,7 @@ contract FlipFabCompat {
     }
 
     function setCat(address cat_) public {
-    	require(deployer == msg.sender, "auth-error");
+        require(deployer == msg.sender, "auth-error");
         cat = cat_;
         deployer = address(0);
     }

@@ -1,11 +1,10 @@
 /**
  *Submitted for verification at Etherscan.io on 2020-08-12
-*/
-
+ */
 
 /**
  *Submitted for verification at Etherscan.io on
-*/
+ */
 
 /*
    ____            __   __        __   _
@@ -47,7 +46,6 @@ pragma solidity ^0.5.12;
 import "./lpTokenWrapper.sol";
 import "./lib.sol";
 
-
 contract StakingRewards is LPTokenWrapper, Auth {
     // --- Auth ---
 
@@ -64,7 +62,6 @@ contract StakingRewards is LPTokenWrapper, Auth {
     bool public fairDistribution = false;
     uint256 public fairDistributionMaxValue = 0;
     uint256 public fairDistributionTime = 0;
-
 
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
@@ -85,11 +82,16 @@ contract StakingRewards is LPTokenWrapper, Auth {
         _;
     }
 
-    constructor () public {
+    constructor() public {
         deployer = msg.sender;
     }
 
-    function initialize(address _gov, uint256 _duration, uint256 _initreward, uint256 _starttime) public initializer {
+    function initialize(
+        address _gov,
+        uint256 _duration,
+        uint256 _initreward,
+        uint256 _starttime
+    ) public initializer {
         // only deployer can initialize
         require(deployer == msg.sender);
 
@@ -107,23 +109,37 @@ contract StakingRewards is LPTokenWrapper, Auth {
         gemForRewardChecker = IGemForRewardChecker(a);
     }
 
-    function setupFairDistribution(uint256 _fairDistributionMaxValue, uint256 _fairDistributionTime) public {
+    function setupFairDistribution(
+        uint256 _fairDistributionMaxValue,
+        uint256 _fairDistributionTime
+    ) public {
         // only deployer can initialize
         require(deployer == msg.sender);
         require(fairDistribution == false);
 
         fairDistribution = true;
-        fairDistributionMaxValue = _fairDistributionMaxValue*(10**decimals);
+        fairDistributionMaxValue = _fairDistributionMaxValue * (10**decimals);
         fairDistributionTime = _fairDistributionTime;
     }
 
-    function registerPairDesc(address gem, address adapter, uint factor, address staker) public auth {
+    function registerPairDesc(
+        address gem,
+        address adapter,
+        uint256 factor,
+        address staker
+    ) public auth {
         require(gem != address(0x0), "gem is null");
         require(adapter != address(0x0), "adapter is null");
 
         require(checkGem(gem), "bad gem");
 
-        pairDescs[gem] = PairDesc({gem:gem, adapter:adapter, factor:factor, staker:staker, name:"dummy"});
+        pairDescs[gem] = PairDesc({
+            gem: gem,
+            adapter: adapter,
+            factor: factor,
+            staker: staker,
+            name: "dummy"
+        });
     }
 
     function resetDeployer() public {
@@ -158,27 +174,39 @@ contract StakingRewards is LPTokenWrapper, Auth {
                 .add(rewards[account]);
     }
 
-    function testFairDistribution(address usr, address gem, uint amount) public view returns (bool){
+    function testFairDistribution(
+        address usr,
+        address gem,
+        uint256 amount
+    ) public view returns (bool) {
         return testFairDistributionByValue(usr, calcCheckValue(amount, gem));
     }
 
-    function testFairDistributionByValue(address usr, uint value) public view returns (bool){
+    function testFairDistributionByValue(address usr, uint256 value) public view returns (bool) {
         if (fairDistribution) {
-            return balanceOf(usr).add(value) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime);
+            return
+                balanceOf(usr).add(value) <= fairDistributionMaxValue ||
+                block.timestamp >= starttime.add(fairDistributionTime);
         }
         return true;
     }
 
-
     function checkFairDistribution(address usr) public view checkStart {
         if (fairDistribution) {
-            require(balanceOf(usr) <= fairDistributionMaxValue || block.timestamp >= starttime.add(fairDistributionTime),
-                    "Fair-distribution-limit");
+            require(
+                balanceOf(usr) <= fairDistributionMaxValue ||
+                    block.timestamp >= starttime.add(fairDistributionTime),
+                "Fair-distribution-limit"
+            );
         }
     }
 
     // stake visibility is public as overriding LPTokenWrapper's stake() function
-    function stake(uint256 amount, address gem, address usr) public updateReward(usr) checkFinish checkStart{
+    function stake(
+        uint256 amount,
+        address gem,
+        address usr
+    ) public updateReward(usr) checkFinish checkStart {
         require(amount > 0, "Cannot stake 0");
         require(pairDescs[gem].staker == msg.sender, "Stake from join only allowed");
 
@@ -186,14 +214,17 @@ contract StakingRewards is LPTokenWrapper, Auth {
         emit Staked(usr, gem, amount);
     }
 
-    function withdraw(uint256 amount, address gem, address usr) public updateReward(usr) checkFinish checkStart{
+    function withdraw(
+        uint256 amount,
+        address gem,
+        address usr
+    ) public updateReward(usr) checkFinish checkStart {
         require(amount > 0, "Cannot withdraw 0");
         require(pairDescs[gem].staker == msg.sender, "Stake from join only allowed");
 
         withdrawLp(amount, gem, usr);
         emit Withdrawn(usr, gem, amount);
     }
-
 
     function getReward() public updateReward(msg.sender) checkFinish checkStart returns (uint256) {
         uint256 reward = earned(msg.sender);
@@ -207,7 +238,7 @@ contract StakingRewards is LPTokenWrapper, Auth {
         return 0;
     }
 
-    modifier checkFinish(){
+    modifier checkFinish() {
         if (block.timestamp > periodFinish) {
             initreward = 0;
             rewardRate = 0;
@@ -217,19 +248,16 @@ contract StakingRewards is LPTokenWrapper, Auth {
         _;
     }
 
-    modifier checkStart(){
-        require(allowToStart(),"not start");
+    modifier checkStart() {
+        require(allowToStart(), "not start");
         _;
     }
 
-    function allowToStart() view public returns (bool) {
+    function allowToStart() public view returns (bool) {
         return block.timestamp > starttime;
     }
 
-    function initRewardAmount(uint256 reward)
-        internal
-        updateReward(address(0))
-    {
+    function initRewardAmount(uint256 reward) internal updateReward(address(0)) {
         require(starttime >= block.timestamp);
         rewardRate = reward.div(duration);
         initreward = reward;
@@ -239,19 +267,32 @@ contract StakingRewards is LPTokenWrapper, Auth {
     }
 }
 
-
 interface VatLike {
-    function slip(bytes32,address,int) external;
-    function move(address,address,uint) external;
+    function slip(
+        bytes32,
+        address,
+        int256
+    ) external;
+
+    function move(
+        address,
+        address,
+        uint256
+    ) external;
 }
-
-
 
 contract GemJoinWithReward is LibNote {
     // --- Auth ---
-    mapping (address => uint) public wards;
-    function rely(address usr) external note auth { wards[usr] = 1; }
-    function deny(address usr) external note auth { wards[usr] = 0; }
+    mapping(address => uint256) public wards;
+
+    function rely(address usr) external note auth {
+        wards[usr] = 1;
+    }
+
+    function deny(address usr) external note auth {
+        wards[usr] = 0;
+    }
+
     modifier auth {
         require(wards[msg.sender] == 1, "GemJoinWithReward/not-authorized");
         _;
@@ -261,13 +302,18 @@ contract GemJoinWithReward is LibNote {
     event withdrawError(uint256 amount, address gem, address usr);
 
     StakingRewards public rewarder;
-    VatLike public vat;   // CDP Engine
-    bytes32 public ilk;   // Collateral Type
-    IERC20  public gem;
-    uint    public dec;
-    uint    public live;  // Active Flag
+    VatLike public vat; // CDP Engine
+    bytes32 public ilk; // Collateral Type
+    IERC20 public gem;
+    uint256 public dec;
+    uint256 public live; // Active Flag
 
-    constructor(address vat_, bytes32 ilk_, address gem_, address rewarder_) public {
+    constructor(
+        address vat_,
+        bytes32 ilk_,
+        address gem_,
+        address rewarder_
+    ) public {
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);
@@ -277,40 +323,51 @@ contract GemJoinWithReward is LibNote {
         dec = gem.decimals();
         require(dec >= 18, "GemJoinWithReward/decimals-18-or-higher");
     }
+
     function cage() external note auth {
         live = 0;
     }
-    function join(address urn, uint wad) external note {
+
+    function join(address urn, uint256 wad) external note {
         require(live == 1, "GemJoinWithReward/not-live");
-        require(int(wad) >= 0, "GemJoinWithReward/overflow");
-        vat.slip(ilk, urn, int(wad));
+        require(int256(wad) >= 0, "GemJoinWithReward/overflow");
+        vat.slip(ilk, urn, int256(wad));
 
         // rewarder.stake(wad, address(gem), msg.sender);
-        (bool ret, ) = address(rewarder).call(abi.encodeWithSelector(rewarder.stake.selector, wad, address(gem), msg.sender));
+        (bool ret, ) =
+            address(rewarder).call(
+                abi.encodeWithSelector(rewarder.stake.selector, wad, address(gem), msg.sender)
+            );
         if (!ret) {
-          emit stakeError(wad, address(gem), msg.sender);
+            emit stakeError(wad, address(gem), msg.sender);
         }
 
         rewarder.checkFairDistribution(msg.sender);
 
-        require(gem.transferFrom(msg.sender, address(this), wad), "GemJoinWithReward/failed-transfer");
+        require(
+            gem.transferFrom(msg.sender, address(this), wad),
+            "GemJoinWithReward/failed-transfer"
+        );
     }
-    function exit(address usr, uint wad) external note {
-        require(wad <= 2 ** 255, "GemJoinWithReward/overflow");
-        vat.slip(ilk, msg.sender, -int(wad));
+
+    function exit(address usr, uint256 wad) external note {
+        require(wad <= 2**255, "GemJoinWithReward/overflow");
+        vat.slip(ilk, msg.sender, -int256(wad));
 
         require(rewarder.allowToStart(), "join-not-start");
 
         // rewarder.withdraw(wad, address(gem), msg.sender);
-        (bool ret, ) = address(rewarder).call(abi.encodeWithSelector(rewarder.withdraw.selector, wad, address(gem), msg.sender));
+        (bool ret, ) =
+            address(rewarder).call(
+                abi.encodeWithSelector(rewarder.withdraw.selector, wad, address(gem), msg.sender)
+            );
         if (!ret) {
-          emit withdrawError(wad, address(gem), msg.sender);
+            emit withdrawError(wad, address(gem), msg.sender);
         }
 
         require(gem.transfer(usr, wad), "GemJoinWithReward/failed-transfer");
     }
 }
-
 
 contract RewardProxyActions {
     function claimReward(address rewarder) public {
@@ -318,4 +375,3 @@ contract RewardProxyActions {
         IERC20(StakingRewards(rewarder).gov()).transfer(msg.sender, reward);
     }
 }
-

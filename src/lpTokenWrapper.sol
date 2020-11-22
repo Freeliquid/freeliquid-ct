@@ -1,11 +1,10 @@
 /**
  *Submitted for verification at Etherscan.io on 2020-08-12
-*/
-
+ */
 
 /**
  *Submitted for verification at Etherscan.io on
-*/
+ */
 
 /*
    ____            __   __        __   _
@@ -42,7 +41,6 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 */
 
-
 pragma solidity ^0.5.12;
 
 import "./IERC20.sol";
@@ -76,14 +74,11 @@ library Math {
      */
     function average(uint256 a, uint256 b) internal pure returns (uint256) {
         // (a + b) / 2 can overflow, so we distribute
-        return (a / 2) + (b / 2) + ((a % 2 + b % 2) / 2);
+        return (a / 2) + (b / 2) + (((a % 2) + (b % 2)) / 2);
     }
 }
 
-
-
 // File: @openzeppelin/contracts/GSN/Context.sol
-
 
 /*
  * @dev Provides information about the current execution context, including the
@@ -98,7 +93,8 @@ library Math {
 contract Context {
     // Empty internal constructor, to prevent people from mistakenly deploying
     // an instance of this contract, which should be used via inheritance.
-    constructor () internal { }
+    constructor() internal {}
+
     // solhint-disable-previous-line no-empty-blocks
 
     function _msgSender() internal view returns (address payable) {
@@ -112,7 +108,6 @@ contract Context {
 }
 
 // File: @openzeppelin/contracts/ownership/Ownable.sol
-
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -131,7 +126,7 @@ contract Ownable is Context {
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    constructor () internal {
+    constructor() internal {
         _owner = _msgSender();
         emit OwnershipTransferred(address(0), _owner);
     }
@@ -188,8 +183,6 @@ contract Ownable is Context {
     }
 }
 
-
-
 /**
  * @title Initializable
  *
@@ -203,51 +196,51 @@ contract Ownable is Context {
  * because this is not dealt with automatically as with constructors.
  */
 contract Initializable {
+    /**
+     * @dev Indicates that the contract has been initialized.
+     */
+    bool private initialized;
 
-  /**
-   * @dev Indicates that the contract has been initialized.
-   */
-  bool private initialized;
+    /**
+     * @dev Indicates that the contract is in the process of being initialized.
+     */
+    bool private initializing;
 
-  /**
-   * @dev Indicates that the contract is in the process of being initialized.
-   */
-  bool private initializing;
+    /**
+     * @dev Modifier to use in the initializer function of a contract.
+     */
+    modifier initializer() {
+        require(
+            initializing || isConstructor() || !initialized,
+            "Contract instance has already been initialized"
+        );
 
-  /**
-   * @dev Modifier to use in the initializer function of a contract.
-   */
-  modifier initializer() {
-    require(initializing || isConstructor() || !initialized, "Contract instance has already been initialized");
+        bool wasInitializing = initializing;
+        initializing = true;
+        initialized = true;
 
-    bool wasInitializing = initializing;
-    initializing = true;
-    initialized = true;
+        _;
 
-    _;
+        initializing = wasInitializing;
+    }
 
-    initializing = wasInitializing;
-  }
+    /// @dev Returns true if and only if the function is running in the constructor
+    function isConstructor() private view returns (bool) {
+        // extcodesize checks the size of the code stored in an address, and
+        // address returns the current address. Since the code is still not
+        // deployed when running a constructor, any checks on its code size will
+        // yield zero, making it an effective way to detect if a contract is
+        // under construction or not.
+        uint256 cs;
+        assembly {
+            cs := extcodesize(address)
+        }
+        return cs == 0;
+    }
 
-  /// @dev Returns true if and only if the function is running in the constructor
-  function isConstructor() private view returns (bool) {
-    // extcodesize checks the size of the code stored in an address, and
-    // address returns the current address. Since the code is still not
-    // deployed when running a constructor, any checks on its code size will
-    // yield zero, making it an effective way to detect if a contract is
-    // under construction or not.
-    uint256 cs;
-    assembly { cs := extcodesize(address) }
-    return cs == 0;
-  }
-
-  // Reserved storage space to allow for layout changes in the future.
-  uint256[50] private ______gap;
+    // Reserved storage space to allow for layout changes in the future.
+    uint256[50] private ______gap;
 }
-
-
-
-
 
 contract LPTokenWrapper is Initializable {
     using SafeMath for uint256;
@@ -257,12 +250,11 @@ contract LPTokenWrapper is Initializable {
         address gem;
         address adapter;
         address staker;
-        uint factor;
+        uint256 factor;
         bytes32 name;
     }
 
-    mapping (address => PairDesc) public pairDescs;
-
+    mapping(address => PairDesc) public pairDescs;
 
     uint256 public decimals = 18;
 
@@ -271,7 +263,7 @@ contract LPTokenWrapper is Initializable {
 
     IGemForRewardChecker public gemForRewardChecker;
 
-    function checkGem(address gem) internal view returns(bool) {
+    function checkGem(address gem) internal view returns (bool) {
         return gemForRewardChecker.check(gem);
     }
 
@@ -293,16 +285,23 @@ contract LPTokenWrapper is Initializable {
         return r;
     }
 
-    function stakeLp(uint256 amount, address gem, address usr) internal {
+    function stakeLp(
+        uint256 amount,
+        address gem,
+        address usr
+    ) internal {
         uint256 value = calcCheckValue(amount, gem);
         _totalSupply = _totalSupply.add(value);
         _balances[usr] = _balances[usr].add(value);
     }
 
-    function withdrawLp(uint256 amount, address gem, address usr) internal {
+    function withdrawLp(
+        uint256 amount,
+        address gem,
+        address usr
+    ) internal {
         uint256 value = calcCheckValue(amount, gem);
         _totalSupply = _totalSupply.sub(value);
         _balances[usr] = _balances[usr].sub(value);
     }
 }
-

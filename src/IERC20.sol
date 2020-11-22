@@ -5,8 +5,7 @@ pragma solidity ^0.5.0;
  * the optional functions; to access them see {ERC20Detailed}.
  */
 interface IERC20 {
-
-    function decimals() external view returns(uint8);
+    function decimals() external view returns (uint8);
 
     /**
      * @dev Returns the amount of tokens in existence.
@@ -26,7 +25,8 @@ interface IERC20 {
      * Emits a {Transfer} event.
      */
     function transfer(address recipient, uint256 amount) external returns (bool);
-    function mint(address account, uint amount) external;
+
+    function mint(address account, uint256 amount) external;
 
     /**
      * @dev Returns the remaining number of tokens that `spender` will be
@@ -62,7 +62,11 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external returns (bool);
 
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
