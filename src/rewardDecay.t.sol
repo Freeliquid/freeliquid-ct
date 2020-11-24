@@ -843,11 +843,7 @@ contract RewardDecayTest is TestBase {
 
         user1.withdraw(rewards, uniPair3, uniAmnt);
 
-        assertEqM(
-            rewards.balanceOf(address(user1)),
-            0,
-            "rewards user1 bal IV"
-        );
+        assertEqM(rewards.balanceOf(address(user1)), 0, "rewards user1 bal IV");
         assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 IV");
         assertEqM(uniPair3.balanceOf(address(rewards)), 0, "rewards bal 0 IV");
         assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal IV");

@@ -274,7 +274,7 @@ contract LPTokenWrapper is Initializable {
     }
 
     function registerGem(address gem) internal {
-        for (uint i =0; i<registeredGems.length; i++) {
+        for (uint256 i = 0; i < registeredGems.length; i++) {
             if (registeredGems[i] == gem) {
                 return;
             }
@@ -284,7 +284,7 @@ contract LPTokenWrapper is Initializable {
 
     function totalSupply() public view returns (uint256) {
         uint256 res = 0;
-        for (uint i =0; i<registeredGems.length; i++) {
+        for (uint256 i = 0; i < registeredGems.length; i++) {
             res = res.add(_totalSupply[registeredGems[i]]);
         }
         return res.div(prec);
@@ -292,7 +292,7 @@ contract LPTokenWrapper is Initializable {
 
     function balanceOf(address account) public view returns (uint256) {
         uint256 res = 0;
-        for (uint i =0; i<registeredGems.length; i++) {
+        for (uint256 i = 0; i < registeredGems.length; i++) {
             res = res.add(_balances[registeredGems[i]][account]);
         }
         return res.div(prec);

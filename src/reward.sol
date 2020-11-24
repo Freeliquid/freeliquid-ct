@@ -47,7 +47,6 @@ import "./lpTokenWrapper.sol";
 import "./lib.sol";
 import "./ReentrancyGuard.sol";
 
-
 contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
     // --- Auth ---
 
@@ -230,7 +229,14 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         emit Withdrawn(usr, gem, amount);
     }
 
-    function getReward() public nonReentrant updateReward(msg.sender) checkFinish checkStart returns (uint256) {
+    function getReward()
+        public
+        nonReentrant
+        updateReward(msg.sender)
+        checkFinish
+        checkStart
+        returns (uint256)
+    {
         uint256 reward = earned(msg.sender);
         if (reward > 0) {
             rewards[msg.sender] = 0;

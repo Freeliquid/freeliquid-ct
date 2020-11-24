@@ -29,7 +29,6 @@ import "./rewardsDecayHolder.sol";
 import "./lib.sol";
 import "./ReentrancyGuard.sol";
 
-
 contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
     address public gov;
     address public aggregator;
