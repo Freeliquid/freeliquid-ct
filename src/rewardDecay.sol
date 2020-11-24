@@ -27,8 +27,10 @@ pragma solidity ^0.5.12;
 import "./lpTokenWrapper.sol";
 import "./rewardsDecayHolder.sol";
 import "./lib.sol";
+import "./ReentrancyGuard.sol";
 
-contract StakingRewardsDecay is LPTokenWrapper, Auth {
+
+contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
     address public gov;
     address public aggregator;
     uint256 public totalRewards = 0;
@@ -262,7 +264,7 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
         address adapter,
         uint256 factor,
         bytes32 name
-    ) public auth {
+    ) public auth nonReentrant {
         require(gem != address(0x0), "gem is null");
         require(adapter != address(0x0), "adapter is null");
 
@@ -406,7 +408,6 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
         yetNotClaimedOldEpochRewards[account] = yetNotClaimedOldEpochRewards[account].add(acc);
     }
 
-    // stake visibility is public as overriding LPTokenWrapper's stake() function
     function stakeEpoch(
         uint256 amount,
         address gem,
@@ -422,7 +423,7 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
         address account,
         uint256 amount,
         address gem
-    ) public checkStart updateCurrentEpoch {
+    ) public nonReentrant checkStart updateCurrentEpoch {
         require(address(holder) == msg.sender);
         assert(amount > 0);
         stakeEpoch(amount, gem, account, epochs[currentEpoch]);
@@ -443,7 +444,7 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
         address account,
         uint256 amount,
         address gem
-    ) public checkStart updateCurrentEpoch {
+    ) public nonReentrant checkStart updateCurrentEpoch {
         require(address(holder) == msg.sender);
         assert(amount > 0);
         withdrawEpoch(amount, gem, account, epochs[currentEpoch]);
@@ -468,11 +469,11 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
         }
     }
 
-    function getReward() public returns (uint256) {
+    function getReward() public nonReentrant returns (uint256) {
         return getRewardCore(msg.sender);
     }
 
-    function getRewardEx(address account) public returns (uint256) {
+    function getRewardEx(address account) public nonReentrant returns (uint256) {
         require(aggregator == msg.sender);
         return getRewardCore(account);
     }

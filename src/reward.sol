@@ -45,8 +45,10 @@ pragma solidity ^0.5.12;
 
 import "./lpTokenWrapper.sol";
 import "./lib.sol";
+import "./ReentrancyGuard.sol";
 
-contract StakingRewards is LPTokenWrapper, Auth {
+
+contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
     // --- Auth ---
 
     address public gov;
@@ -127,7 +129,7 @@ contract StakingRewards is LPTokenWrapper, Auth {
         address adapter,
         uint256 factor,
         address staker
-    ) public auth {
+    ) public auth nonReentrant {
         require(gem != address(0x0), "gem is null");
         require(adapter != address(0x0), "adapter is null");
 
@@ -208,7 +210,7 @@ contract StakingRewards is LPTokenWrapper, Auth {
         uint256 amount,
         address gem,
         address usr
-    ) public updateReward(usr) checkFinish checkStart {
+    ) public nonReentrant updateReward(usr) checkFinish checkStart {
         require(amount > 0, "Cannot stake 0");
         require(pairDescs[gem].staker == msg.sender, "Stake from join only allowed");
 
@@ -220,7 +222,7 @@ contract StakingRewards is LPTokenWrapper, Auth {
         uint256 amount,
         address gem,
         address usr
-    ) public updateReward(usr) checkFinish checkStart {
+    ) public nonReentrant updateReward(usr) checkFinish checkStart {
         require(amount > 0, "Cannot withdraw 0");
         require(pairDescs[gem].staker == msg.sender, "Stake from join only allowed");
 
@@ -228,7 +230,7 @@ contract StakingRewards is LPTokenWrapper, Auth {
         emit Withdrawn(usr, gem, amount);
     }
 
-    function getReward() public updateReward(msg.sender) checkFinish checkStart returns (uint256) {
+    function getReward() public nonReentrant updateReward(msg.sender) checkFinish checkStart returns (uint256) {
         uint256 reward = earned(msg.sender);
         if (reward > 0) {
             rewards[msg.sender] = 0;
