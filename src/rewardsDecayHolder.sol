@@ -24,6 +24,8 @@ contract StakingRewardsDecayHolder {
 
     IRewarder public rewarder;
 
+    uint256 public withdrawErrorCount;
+
     mapping(address => mapping(address => uint256)) public amounts;
 
     event withdrawError(uint256 amount, address gem);
@@ -53,6 +55,7 @@ contract StakingRewardsDecayHolder {
             //of potential rewarder's bug or hacks
             //only amounts map matters
             emit withdrawError(amount, gem);
+            withdrawErrorCount++;
         }
 
         amounts[gem][msg.sender] = amounts[gem][msg.sender].sub(amount);

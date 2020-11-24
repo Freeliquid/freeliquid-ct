@@ -849,6 +849,167 @@ contract RewardDecayTest is TestBase {
         assertEqM(uniPair3.balanceOf(address(user1)), uniAmnt, "user1 bal IV");
     }
 
+    function testUniDisbalance() public {
+        uint256 starttime = 10;
+
+        prepareRewarder3(starttime, 10);
+
+        rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
+
+        uint256 value1 = 10000;
+        uint256 uniAmnt = addLiquidityToUser(value1, user1, uniPair3);
+
+        hevm.warp(starttime + 1);
+
+        user1.stake(rewards, uniPair3, uniAmnt);
+
+        (uint112 _reserve0, uint112 _reserve1, ) = uniPair3.getReserves();
+
+        assertEqM(
+            2 * 1e18 * value1,
+            rewards.calcCheckValue(uniAmnt, address(uniPair3)),
+            "val check I"
+        );
+        assertEqM(rewards.balanceOf(address(user1)), 2 * 1e18 * value1, "rewards user1 bal I");
+
+        _reserve0 += _reserve1 / 2;
+        _reserve1 -= _reserve1 / 2;
+
+        uniPair3.setReserve0(_reserve0);
+        uniPair3.setReserve1(_reserve1);
+
+        uint256 chunkVal1 = 2 * 1e18 * value1;
+        assertEqM(
+            1e18 * value1,
+            rewards.calcCheckValue(uniAmnt, address(uniPair3)),
+            "val check II"
+        );
+        assertEqM(rewards.balanceOf(address(user1)), chunkVal1, "rewards user1 bal II");
+
+        uint256 value2 = 20000;
+        uint256 uniAmnt2 = addLiquidityToUser(value2, user1, uniPair3);
+
+        hevm.warp(starttime + 100);
+
+        uint256 chunkVal2 = rewards.calcCheckValue(uniAmnt2, address(uniPair3));
+        user1.stake(rewards, uniPair3, uniAmnt2);
+
+        hevm.warp(starttime + 200);
+
+        assertEqM(
+            rewards.balanceOf(address(user1)),
+            chunkVal1 + chunkVal2,
+            "rewards user1 bal III"
+        );
+
+        (_reserve0, _reserve1, ) = uniPair3.getReserves();
+
+        _reserve0 += _reserve1 / 2;
+        _reserve1 -= _reserve1 / 2;
+
+        uniPair3.setReserve0(_reserve0);
+        uniPair3.setReserve1(_reserve1);
+
+        user1.withdraw(rewards, uniPair3, uniAmnt2 + uniAmnt);
+
+        assertEqM(rewards.balanceOf(address(user1)), 0, "rewards u1 bal zero");
+    }
+
+    function testUniDisbalanceUnderflow() public {
+        uint256 starttime = 10;
+
+        prepareRewarder3(starttime, 10);
+
+        rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
+
+        uint256 value1 = 10000;
+        uint256 value2 = 100000;
+        uint256 uniAmnt_u2_0 = addLiquidityToUser(1000, user2, uniPair3);
+        uint256 uniAmnt_u2_1 = addLiquidityToUser(20000, user2, uniPair3);
+        uint256 uniAmnt_u2_2 = addLiquidityToUser(30000, user2, uniPair3);
+        uint256 uniAmnt = addLiquidityToUser(value1, user1, uniPair3);
+
+        hevm.warp(starttime + 1);
+
+        user1.stake(rewards, uniPair3, uniAmnt);
+
+        user2.stake(rewards, uniPair3, uniAmnt_u2_0);
+
+        uint256 uniAmnt2 = addLiquidityToUser(value2, user1, uniPair3);
+
+        assertEqM(
+            220000000000000000000000,
+            rewards.calcCheckValue(uniAmnt2 + uniAmnt, address(uniPair3)),
+            "val I"
+        );
+
+        (uint112 _reserve0, uint112 _reserve1, ) = uniPair3.getReserves();
+
+        _reserve1 = _reserve0 / 100000;
+
+        uniPair3.setReserve0(_reserve0);
+        uniPair3.setReserve1(_reserve1);
+
+        user2.stake(rewards, uniPair3, uniAmnt_u2_1);
+        assertEqM(
+            rewards.totalSupply(),
+            rewards.balanceOf(address(user2)) + rewards.balanceOf(address(user1)),
+            "rewards tot u21 0"
+        );
+        user1.stake(rewards, uniPair3, uniAmnt2);
+
+        assertEqM(
+            rewards.totalSupply(),
+            rewards.balanceOf(address(user2)) + rewards.balanceOf(address(user1)),
+            "rewards tot u21 1"
+        );
+
+        (_reserve0, _reserve1, ) = uniPair3.getReserves();
+
+        if (_reserve0 > _reserve1) {
+            _reserve0 *= 10000000000;
+            _reserve1 = _reserve0;
+        } else {
+            _reserve1 *= 10000000000;
+            _reserve0 = _reserve1;
+        }
+        assertEqM(_reserve0, _reserve1, "_reserve0==_reserve1");
+
+        uniPair3.setReserve0(_reserve0);
+        uniPair3.setReserve1(_reserve1);
+
+        assertTrue(
+            rewards.calcCheckValue(uniAmnt2 + uniAmnt, address(uniPair3)) >
+                rewards.balanceOf(address(user1))
+        );
+
+        user2.stake(rewards, uniPair3, uniAmnt_u2_2);
+
+        assertEqM(
+            rewards.totalSupply(),
+            rewards.balanceOf(address(user2)) + rewards.balanceOf(address(user1)),
+            "rewards tot u21 2"
+        );
+
+        assertEqM(rewards.holder().withdrawErrorCount(), 0, "withdrawErrorCount 0");
+        user1.withdraw(rewards, uniPair3, uniAmnt2 + uniAmnt);
+        assertEqM(rewards.holder().withdrawErrorCount(), 0, "withdrawErrorCount 1");
+
+        assertEqM(
+            rewards.totalSupply(),
+            rewards.balanceOf(address(user2)) + rewards.balanceOf(address(user1)),
+            "rewards tot u21 3"
+        );
+
+        assertEqM(rewards.balanceOf(address(user1)), 0, "rewards u1 bal zero");
+
+        assertEqM(rewards.totalSupply(), rewards.balanceOf(address(user2)), "rewards u2 tot");
+
+        user2.withdraw(rewards, uniPair3, uniAmnt_u2_0 + uniAmnt_u2_1 + uniAmnt_u2_2);
+        assertEqM(rewards.totalSupply(), 0, "rewards tot 0");
+        assertEqM(rewards.balanceOf(address(user2)), 0, "rewards u2 bal zero");
+    }
+
     function testEpochStartTimeAfterCreate() public {
         hevm.warp(100);
         uint256 starttime = 90;
