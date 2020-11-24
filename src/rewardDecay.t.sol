@@ -841,16 +841,11 @@ contract RewardDecayTest is TestBase {
 
         uniPair3.setThrownExc();
 
-        expectEventsExact(address(rewards.holder()));
-        emit withdrawError(uniAmnt, address(uniPair3));
-        //unfortunatelly event testing dosn't working now
-        //https://github.com/dapphub/dapptools/issues/18
-
         user1.withdraw(rewards, uniPair3, uniAmnt);
 
         assertEqM(
             rewards.balanceOf(address(user1)),
-            value1 * 2 * valueMult,
+            0,
             "rewards user1 bal IV"
         );
         assertEqM(uniPair3.balanceOf(address(rewards.holder())), 0, "rewards.hld bal 0 IV");

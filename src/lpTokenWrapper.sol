@@ -256,10 +256,16 @@ contract LPTokenWrapper is Initializable {
 
     mapping(address => PairDesc) public pairDescs;
 
+    address[] private registeredGems;
+
     uint256 public decimals = 18;
 
-    uint256 private _totalSupply;
-    mapping(address => uint256) private _balances;
+    uint256 public prec = 1e18;
+
+    mapping(address => uint256) private _totalSupply;
+
+    mapping(address => mapping(address => uint256)) private _amounts;
+    mapping(address => mapping(address => uint256)) private _balances;
 
     IGemForRewardChecker public gemForRewardChecker;
 
@@ -267,12 +273,29 @@ contract LPTokenWrapper is Initializable {
         return gemForRewardChecker.check(gem);
     }
 
+    function registerGem(address gem) internal {
+        for (uint i =0; i<registeredGems.length; i++) {
+            if (registeredGems[i] == gem) {
+                return;
+            }
+        }
+        registeredGems.push(gem);
+    }
+
     function totalSupply() public view returns (uint256) {
-        return _totalSupply;
+        uint256 res = 0;
+        for (uint i =0; i<registeredGems.length; i++) {
+            res = res.add(_totalSupply[registeredGems[i]]);
+        }
+        return res.div(prec);
     }
 
     function balanceOf(address account) public view returns (uint256) {
-        return _balances[account];
+        uint256 res = 0;
+        for (uint i =0; i<registeredGems.length; i++) {
+            res = res.add(_balances[registeredGems[i]][account]);
+        }
+        return res.div(prec);
     }
 
     function calcCheckValue(uint256 amount, address gem) public view returns (uint256) {
@@ -290,9 +313,11 @@ contract LPTokenWrapper is Initializable {
         address gem,
         address usr
     ) internal {
-        uint256 value = calcCheckValue(amount, gem);
-        _totalSupply = _totalSupply.add(value);
-        _balances[usr] = _balances[usr].add(value);
+        uint256 value = calcCheckValue(amount, gem).mul(prec);
+
+        _balances[gem][usr] = _balances[gem][usr].add(value);
+        _amounts[gem][usr] = _amounts[gem][usr].add(amount);
+        _totalSupply[gem] = _totalSupply[gem].add(value);
     }
 
     function withdrawLp(
@@ -300,8 +325,10 @@ contract LPTokenWrapper is Initializable {
         address gem,
         address usr
     ) internal {
-        uint256 value = calcCheckValue(amount, gem);
-        _totalSupply = _totalSupply.sub(value);
-        _balances[usr] = _balances[usr].sub(value);
+        uint256 value = amount.mul(_balances[gem][usr]).div(_amounts[gem][usr]);
+
+        _balances[gem][usr] = _balances[gem][usr].sub(value);
+        _amounts[gem][usr] = _amounts[gem][usr].sub(amount);
+        _totalSupply[gem] = _totalSupply[gem].sub(value);
     }
 }

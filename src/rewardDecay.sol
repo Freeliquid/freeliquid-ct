@@ -274,6 +274,8 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth {
             delete pairNameToGem[pairDescs[gem].name];
         }
 
+        registerGem(gem);
+
         pairDescs[gem] = PairDesc({
             gem: gem,
             adapter: adapter,

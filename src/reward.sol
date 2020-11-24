@@ -133,6 +133,8 @@ contract StakingRewards is LPTokenWrapper, Auth {
 
         require(checkGem(gem), "bad gem");
 
+        registerGem(gem);
+
         pairDescs[gem] = PairDesc({
             gem: gem,
             adapter: adapter,
