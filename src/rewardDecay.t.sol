@@ -1391,4 +1391,207 @@ contract RewardDecayTest is TestBase {
             "fail expected w u3 p2"
         );
     }
+
+    struct LocalsWithSkipTest {
+        uint starttime;
+        uint allTime;
+        uint256 value1;
+        uint256 value2;
+        uint256 uniAmnt;
+        uint256 uniAmnt2;
+    }
+
+    function prepareTestWithSkip() internal returns (LocalsWithSkipTest memory locals) {
+        locals.starttime = 10;
+
+        locals.allTime = prepareRewarder3(locals.starttime, 10);
+
+        rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
+
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 0);
+
+
+        locals.value1 = 10000;
+        locals.value2 = 10000;
+
+        locals.uniAmnt = addLiquidityToUser(locals.value1, user1, uniPair3);
+        locals.uniAmnt2 = addLiquidityToUser(locals.value2, user2, uniPair3);
+    }
+
+    function testWithSkip1() public {
+        LocalsWithSkipTest memory locals = prepareTestWithSkip();
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 2000);
+
+        assertEqM(rewards.calcCurrentEpoch(), 2, "epoch 2");
+
+        assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 zero");
+        assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 1");
+        assertEqM(user1.getReward(rewards), totalRewards/2, "getReward 1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/2, "gov bal u1");
+    }
+
+    function testWithSkip2() public {
+        LocalsWithSkipTest memory locals = prepareTestWithSkip();
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 2000);
+
+        assertEqM(rewards.calcCurrentEpoch(), 2, "epoch 2");
+
+        uint uniAmnt_ = addLiquidityToUser(locals.value1, user1, uniPair3);
+        user1.stake(rewards, uniPair3, uniAmnt_);
+
+        assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 zero");
+        assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 1");
+        assertEqM(user1.getReward(rewards), totalRewards/2, "getReward 1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/2, "gov bal 1");
+
+        assertEqM(rewards.earned(address(user1)), 0, "earned 1 zero");
+        hevm.warp(locals.starttime + 3000);
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 2");
+        assertEqM(user1.getReward(rewards), totalRewards/2, "getReward 2");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards, "gov bal 2");
+    }
+
+    function testWithSkip3() public {
+        LocalsWithSkipTest memory locals = prepareTestWithSkip();
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 2000);
+
+        assertEqM(rewards.calcCurrentEpoch(), 2, "epoch 2");
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 1");
+        user1.withdraw(rewards, uniPair3, locals.uniAmnt);
+
+        assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 zero");
+        assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 1_");
+        assertEqM(user1.getReward(rewards), totalRewards/2, "getReward 1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/2, "gov bal 1");
+
+        assertEqM(rewards.earned(address(user1)), 0, "earned 1 zero");
+        hevm.warp(locals.starttime + 3000);
+
+        assertEqM(rewards.earned(address(user1)), 0, "earned 2");
+        assertEqM(user1.getReward(rewards), 0, "getReward 2");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/2, "gov bal 2");
+    }
+
+
+    function testWithSkip4_2u() public {
+        LocalsWithSkipTest memory locals = prepareTestWithSkip();
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        user2.stake(rewards, uniPair3, locals.uniAmnt2);
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 2000);
+
+        assertEqM(rewards.calcCurrentEpoch(), 2, "epoch 2");
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 1 u1");
+        assertEqM(rewards.earned(address(user2)), totalRewards/4, "earned 1 u2");
+        user2.withdraw(rewards, uniPair3, locals.uniAmnt2);
+
+        assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 zero");
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 1_");
+        assertEqM(user1.getReward(rewards), totalRewards/4, "getReward 1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/4, "gov bal 1");
+
+        assertEqM(rewards.earned(address(user1)), 0, "earned 1 zero");
+        hevm.warp(locals.starttime + 3000);
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/2, "earned 2 u1");
+        assertEqM(user1.getReward(rewards), totalRewards/2, "getReward 2 u1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards*3/4, "gov bal 2 u1");
+
+        assertEqM(rewards.earned(address(user2)), totalRewards/4, "earned 2 u2");
+        assertEqM(user2.getReward(rewards), totalRewards/4, "earned 2 u2");
+        assertEqM(gov.balanceOf(address(user2)), totalRewards/4, "gov bal 2 u2");
+    }
+
+    function testWithSkip5_2u() public {
+        LocalsWithSkipTest memory locals = prepareTestWithSkip();
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        user2.stake(rewards, uniPair3, locals.uniAmnt2);
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 2000);
+
+        assertEqM(rewards.calcCurrentEpoch(), 2, "epoch 2");
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 1 u1");
+        assertEqM(rewards.earned(address(user2)), totalRewards/4, "earned 1 u2");
+
+        uint uniAmnt2_ = addLiquidityToUser(locals.value2, user2, uniPair3);
+        user2.stake(rewards, uniPair3, uniAmnt2_);
+
+        assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 zero");
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 1_");
+        assertEqM(user1.getReward(rewards), totalRewards/4, "getReward 1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/4, "gov bal 1");
+
+        assertEqM(rewards.earned(address(user1)), 0, "earned 1 zero");
+
+        hevm.warp(locals.starttime + 3000);
+        assertEqM(rewards.earned(address(user1)), totalRewards/6, "earned 2 u1");
+        assertEqM(rewards.earned(address(user2)), totalRewards*1/3+totalRewards/4, "earned 2 u2");
+
+        hevm.warp(locals.starttime + 5000);
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/6, "earned 2 u1");
+        assertEqM(user1.getReward(rewards), totalRewards/6, "getReward 2 u1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/6+totalRewards/4, "gov bal 2 u1");
+
+        assertEqM(rewards.earned(address(user2)), totalRewards*1/3+totalRewards/4, "earned 2 u2");
+        assertEqM(user2.getReward(rewards), totalRewards*1/3+totalRewards/4, "earned 2 u2");
+        assertEqM(gov.balanceOf(address(user2)), totalRewards*1/3+totalRewards/4, "gov bal 2 u2");
+    }
+
+    function testWithSkip6_2u() public {
+        LocalsWithSkipTest memory locals = prepareTestWithSkip();
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        user2.stake(rewards, uniPair3, locals.uniAmnt2);
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime + 2000);
+
+        assertEqM(rewards.calcCurrentEpoch(), 2, "epoch 2");
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 1 u1");
+        assertEqM(rewards.earned(address(user2)), totalRewards/4, "earned 1 u2");
+
+        assertEqM(user2.getReward(rewards), totalRewards/4, "earned 2 u2");
+        assertEqM(gov.balanceOf(address(user2)), totalRewards/4, "gov bal 2 u2");
+
+        assertEqM(gov.balanceOf(address(user1)), 0, "gov bal u1 zero");
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 1_");
+        assertEqM(user1.getReward(rewards), totalRewards/4, "getReward 1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/4, "gov bal 1");
+
+        assertEqM(rewards.earned(address(user1)), 0, "earned 1 zero");
+        hevm.warp(locals.starttime + 3000);
+
+        assertEqM(rewards.earned(address(user1)), totalRewards/4, "earned 2 u1");
+        assertEqM(user1.getReward(rewards), totalRewards/4, "getReward 2 u1");
+        assertEqM(gov.balanceOf(address(user1)), totalRewards/2, "gov bal 2 u1");
+
+        assertEqM(rewards.earned(address(user2)), totalRewards/4, "earned 2 u2");
+        assertEqM(user2.getReward(rewards), totalRewards/4, "earned 2 u2");
+        assertEqM(gov.balanceOf(address(user2)), totalRewards/2, "gov bal 2 u2");
+    }
+
 }
