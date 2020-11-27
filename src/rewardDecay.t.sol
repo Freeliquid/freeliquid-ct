@@ -1661,4 +1661,59 @@ contract RewardDecayTest is TestBase {
         assertEqM(gov.balanceOf(address(user2)), totalRewards/12+totalRewards/3, "gov bal 2 u2");
     }
 
+
+    function testActionsOnStart() public {
+        LocalsWithSkipTest memory locals;
+        locals.starttime = 10;
+
+        locals.allTime = prepareRewarder3(locals.starttime, 10);
+
+        rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
+
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime);
+        locals.value1 = 10000;
+        locals.uniAmnt = addLiquidityToUser(locals.value1, user1, uniPair3);
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        user1.withdraw(rewards, uniPair3, locals.uniAmnt);
+        assertEqM(user1.getReward(rewards), 0, "earned 2 u2");
+    }
+
+    function implActionsAfterFinish(bool onFinishPause, bool tickeBeforeFinish) public {
+        LocalsWithSkipTest memory locals;
+        locals.starttime = 10;
+
+        locals.allTime = prepareRewarder3(locals.starttime, 10);
+
+        rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
+
+        assertEqM(rewards.calcCurrentEpoch(), 0, "epoch 0");
+
+        hevm.warp(locals.starttime+(tickeBeforeFinish ? 2999:3000));
+        locals.value1 = 10000;
+        locals.uniAmnt = addLiquidityToUser(locals.value1, user1, uniPair3);
+
+        user1.stake(rewards, uniPair3, locals.uniAmnt);
+        if (onFinishPause) {
+            hevm.warp(locals.starttime+7000);
+        }
+        user1.withdraw(rewards, uniPair3, locals.uniAmnt);
+        assertEqM(user1.getReward(rewards), onFinishPause && tickeBeforeFinish ? 3 : 0, "earned");
+    }
+
+    function testActionsAfterFinishTrueTrue() public {
+        implActionsAfterFinish(true, true);
+    }
+    function testActionsAfterFinishFalseTrue() public {
+        implActionsAfterFinish(false, true);
+    }
+    function testActionsAfterFinishTrueFalse() public {
+        implActionsAfterFinish(true, false);
+    }
+    function testActionsAfterFinishFalseFalse() public {
+        implActionsAfterFinish(false, false);
+    }
+
 }
