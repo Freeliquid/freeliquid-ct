@@ -152,3 +152,14 @@ contract UniForRewardCheckerKovan is UniForRewardCheckerBase {
         tokens[0x5f99471D242d04C42a990A33e8233f5B48F89C43] = true; //usdn
     }
 }
+
+contract UniForRewardCheckerRinkeby is UniForRewardCheckerBase {
+    constructor(address usdfl, address gov) public {
+        tokens[usdfl] = true;
+        tokens[gov] = true;
+        tokens[0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b] = true; //usdc
+        tokens[0xD9BA894E0097f8cC2BBc9D24D308b98e36dc6D02] = true; //usdt
+        tokens[0x97833b01a73733065684A851Fd1E91D7951b5fD8] = true; //dai
+        tokens[0x033C5b4A8E1b8A2f3b5A7451a9defD561028a8C5] = true; //usdn
+    }
+}

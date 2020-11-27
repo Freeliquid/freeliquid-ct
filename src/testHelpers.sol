@@ -114,6 +114,7 @@ contract VatMock {
 }
 
 contract USDN is DSToken("USDN") {}
+contract DAI is DSToken("DAI") {}
 
 contract UniForRewardCheckerTest is UniForRewardCheckerBase {
     function add(DSToken token) public {
