@@ -684,6 +684,12 @@ contract RewardDecayTest is TestBase {
         uint256 n;
         uint256 i;
         uint256 epochCenter;
+
+        uint256 timeStep;
+        uint256 rewardStep;
+        uint256 starttime;
+        uint256 skipEpoch;
+        uint256 allTime;
     }
 
     function checkCurrentEpoch(TestTimeVars memory vars) internal {
@@ -703,27 +709,36 @@ contract RewardDecayTest is TestBase {
     }
 
     function testTime0() public {
-        timeImpl(0);
+        timeImpl(0, true);
     }
 
     function testTime1() public {
-        timeImpl(1);
+        timeImpl(1, true);
     }
 
     function testTime0Vec() public {
         vectorizedInit = true;
-        timeImpl(0);
+        timeImpl(0, true);
     }
 
-    function timeImpl(uint256 shift) public {
+    function testTime0_GetRewardAfter() public {
+        timeImpl(0, false);
+    }
+
+    function testTime1_GetRewardAfter() public {
+        timeImpl(1, false);
+    }
+
+
+    function timeImpl(uint256 shift, bool getRewardBefore) public {
         TestTimeVars memory vars;
         vars.n = 90;
-        uint256 timeStep = 3600 * 24;
-        uint256 rewardStep = 1000000000;
-        uint256 starttime = 10;
-        uint256 skipEpoch = uint256(-1);
-        uint256 allTime = prepareRewarder(vars.n, starttime, rewardStep, timeStep, skipEpoch);
-        assertEqM(allTime, timeStep * vars.n, "allTime==timeStep*n");
+        vars.timeStep = 3600 * 24;
+        vars.rewardStep = 1000000000;
+        vars.starttime = 10;
+        vars.skipEpoch = uint256(-1);
+        vars.allTime = prepareRewarder(vars.n, vars.starttime, vars.rewardStep, vars.timeStep, vars.skipEpoch);
+        assertEqM(vars.allTime, vars.timeStep * vars.n, "allTime==timeStep*n");
 
         rewards.registerPairDesc(address(uniPair3), address(sadapter), 1, "1");
 
@@ -739,10 +754,10 @@ contract RewardDecayTest is TestBase {
         uint256 rewardRate;
 
         for (vars.e = 0; vars.e < vars.n + 2; vars.e++) {
-            vars.epochCenter = timeStep * vars.e + starttime;
+            vars.epochCenter = vars.timeStep * vars.e + vars.starttime;
 
             uint256 start = vars.epochCenter - border;
-            if (start < starttime) start = starttime;
+            if (start < vars.starttime) start = vars.starttime;
 
             for (vars.i = start; vars.i < vars.epochCenter + border; vars.i++) {
                 hevm.warp(vars.i);
@@ -756,11 +771,21 @@ contract RewardDecayTest is TestBase {
                     if (needStake) {
                         user1.stake(rewards, uniPair3, uniAmnt);
                         lastStakeTime = vars.i;
-                        rewardRate = vars.i < allTime + starttime
+                        rewardRate = vars.i < vars.allTime + vars.starttime
                             ? rewards.getEpochRewardRate(rewards.calcCurrentEpoch())
                             : 0;
                     } else {
+
+                        if (getRewardBefore) {
+                            user1.getReward(rewards);
+                        }
+
                         user1.withdraw(rewards, uniPair3, uniAmnt);
+
+                        if (!getRewardBefore) {
+                            user1.getReward(rewards);
+                        }
+
                         assertTrue(vars.i > lastStakeTime);
                         accReward += rewardRate * (vars.i - lastStakeTime);
                     }
@@ -773,7 +798,7 @@ contract RewardDecayTest is TestBase {
             }
         }
 
-        assertEqM(user1.getReward(rewards), accReward, "getRewards");
+        assertEqM(gov.balanceOf(address(user1)), accReward, "total reward");
     }
 
     event withdrawError(uint256 amount, address gem);
