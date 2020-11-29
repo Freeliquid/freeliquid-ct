@@ -136,7 +136,7 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     df["dt"] = pd.to_datetime(df.index+startUnixTime, unit="s")
     df = df.set_index("dt")
 
-    df["perHour"] = df.y * 3600 / (10**digits)
+    # df["perHour"] = df.y * 3600 / (10**digits)
 
     df = df.resample(str(stepDays)+"d").last().fillna(method='ffill')
     # df = df.resample("1d").last().fillna(method='ffill')
@@ -163,6 +163,12 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
 
     x_compat=True
 
+    distrib = pd.DataFrame(df.i.diff().shift(-1).fillna(targetCirculate-df.i.iloc[-1]))
+    distrib["ut"] = distrib.index.astype("int")//1000000000
+    # distrib["perHour"] = distrib.i / (stepDays*24)
+    df["perHour"] = distrib.i / (stepDays*24)
+    # print(distrib)
+    # distrib["rr"] = (distrib.i * (10**digits)).astype("int64")
 
     df.perHour.plot(ax=axs[0], color="red", lw=9, x_compat=x_compat)
     # df.s.plot(ax=axs[1], color="red", lw=3, x_compat=x_compat)
@@ -170,10 +176,6 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     if panes > 2:
         (df.i-df.s).plot(ax=axs[2], color="blue", x_compat=x_compat)
 
-    distrib = pd.DataFrame(df.i.diff().shift(-1).fillna(targetCirculate-df.i.iloc[-1]))
-    distrib["ut"] = distrib.index.astype("int")//1000000000
-    # print(distrib)
-    # distrib["rr"] = (distrib.i * (10**digits)).astype("int64")
 
     prec=9
     rint = (distrib.i * (10**prec)).astype("int64")
