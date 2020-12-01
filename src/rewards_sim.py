@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 from matplotlib.dates import DateFormatter, MonthLocator, YearLocator, DayLocator, RRuleLocator, WeekdayLocator, num2date
+from matplotlib.ticker import IndexLocator, ScalarFormatter
 
 import functools
 
@@ -104,6 +105,43 @@ class DateFormatterEx (DateFormatter):
         return "month "+str(int(monthid)-1)
 
 
+STARTUNIXTIME = 3600*24*5
+# STARTUNIXTIME = datetime.utcnow().timestamp()
+
+def applyTicks(axs, days, stop):
+    for ax in axs:
+        month = MonthLocator()
+        year = YearLocator()
+        day = DayLocator()
+        day2 = DayLocator(bymonthday=1)
+        # rrule = RRuleLocator()
+        if days < 100:
+            fmt1 = DateFormatter('week %W')
+            week = WeekdayLocator()
+            ax.xaxis.set_major_locator(week)
+            ax.xaxis.set_major_formatter(fmt1)
+        else:
+            fmt2 = DateFormatterEx()
+            ax.xaxis.set_major_locator(day2)
+            ax.xaxis.set_major_formatter(fmt2)
+
+
+        ax.xaxis.set_minor_locator(day)
+        # ax.xaxis.set_minor_formatter(fmt2)
+
+    for ax in axs:
+        ax.axhline(y=0, lw=1.0)
+
+        # ax.axvline(x=pd.to_datetime(stop+STARTUNIXTIME, unit="s"), lw=1.0)
+        ax.axvline(x=pd.to_datetime(STARTUNIXTIME, unit="s"), lw=1.0)
+
+        ax.set_xlim(pd.to_datetime(STARTUNIXTIME, unit="s"), pd.to_datetime(stop+STARTUNIXTIME-3600*24*7, unit="s"))
+
+
+        for item in ([ax.xaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
+            item.set_fontsize(32)
+
+
 def d_analize(targetCirculate, days, name, stepDays, digits=8):
     panes = 2
     fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=False, squeeze=True, figsize=(30, 20))
@@ -131,9 +169,7 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     df["i"] =  integral_data(stop, step) * starty / (10**digits)
 
 
-    # startUnixTime = datetime.utcnow().timestamp()
-    startUnixTime = 3600*24*5
-    df["dt"] = pd.to_datetime(df.index+startUnixTime, unit="s")
+    df["dt"] = pd.to_datetime(df.index+STARTUNIXTIME, unit="s")
     df = df.set_index("dt")
 
     # df["perHour"] = df.y * 3600 / (10**digits)
@@ -141,25 +177,6 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     df = df.resample(str(stepDays)+"d").last().fillna(method='ffill')
     # df = df.resample("1d").last().fillna(method='ffill')
     # print(df)
-
-    for ax in axs:
-        month = MonthLocator()
-        year = YearLocator()
-        day = DayLocator()
-        day2 = DayLocator(bymonthday=1)
-        # rrule = RRuleLocator()
-        if days < 100:
-            fmt1 = DateFormatter('week %W')
-            week = WeekdayLocator()
-            ax.xaxis.set_major_locator(week)
-            ax.xaxis.set_major_formatter(fmt1)
-        else:
-            fmt2 = DateFormatterEx()
-            ax.xaxis.set_major_locator(day2)
-            ax.xaxis.set_major_formatter(fmt2)
-
-        ax.xaxis.set_minor_locator(day)
-        # ax.xaxis.set_minor_formatter(fmt2)
 
     x_compat=True
 
@@ -185,17 +202,7 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
 
     print("total", functools.reduce(lambda x, y: x + y, rint))
 
-    for ax in axs:
-        ax.axhline(y=0, lw=1.0)
-
-        # ax.axvline(x=pd.to_datetime(stop+startUnixTime, unit="s"), lw=1.0)
-        ax.axvline(x=pd.to_datetime(startUnixTime, unit="s"), lw=1.0)
-
-        ax.set_xlim(pd.to_datetime(startUnixTime, unit="s"), pd.to_datetime(stop+startUnixTime-3600*24*7, unit="s"))
-
-
-        for item in ([ax.xaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(32)
+    applyTicks(axs, days, stop)
 
     axs[1].axhline(y=targetCirculate, lw=1.0)
 
@@ -204,9 +211,59 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     plt.savefig(name+".png", dpi=300)
     plt.close()
 
+    return df["perHour"]
+
+def draw_combined(datas, names):
+
+    stop = max(map(lambda distr: distr.index.max(), datas))
+    index = pd.date_range(start=pd.to_datetime(STARTUNIXTIME, unit="s"),
+                          end=stop, freq="1d")
+    indexh = pd.date_range(start=pd.to_datetime(STARTUNIXTIME, unit="s"),
+                          end=stop, freq="1d")
+
+    df = pd.DataFrame(index=index)
+    total = pd.Series(data=150000.0, index=indexh)
+    dfh = pd.DataFrame(index=indexh)
+
+
+    for distr, name in zip(datas, names):
+        df[name] = distr.resample("1d").last().fillna(method='ffill')
+        total += df[name].resample("1h").last().fillna(method='ffill').fillna(0.0).cumsum()
+        dfh[name] = df[name].resample("1h").last().fillna(method='ffill').fillna(0.0).cumsum()
+
+
+    x_compat = True
+    print(df)
+
+    panes = 2
+    fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 20))
+
+    applyTicks(axs, 900, stop.timestamp())
+
+
+    df.plot(ax=axs[0], lw=9, x_compat=x_compat)
+
+    dfh.plot(ax=axs[1], lw=9, x_compat=x_compat)
+    total.plot(ax=axs[1], lw=9, x_compat=x_compat)
+
+    axs[1].axhline(y=1000000, lw=1.0)
+
+    loc = IndexLocator(100000, 100000)
+    axs[1].yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+    axs[1].yaxis.set_major_locator(loc)
+
+
+
+    plt.savefig("combo.png", dpi=300)
+    plt.close()
+
 
 if __name__ == "__main__":
     # sq_analize()
-    d_analize(targetCirculate=450000, days=365, stepDays=7, name="lowrisk")
-    d_analize(targetCirculate=400000, days=90, stepDays=2, name="hirisk")
+    lowriskDays = 7
+    hiriskDays = 2
+    lowrisk = d_analize(targetCirculate=450000, days=365, stepDays=lowriskDays, name="lowrisk")
+    hirisk = d_analize(targetCirculate=400000, days=90, stepDays=hiriskDays, name="hirisk")
+    draw_combined([lowrisk, hirisk], ["lowrisk", "hirisk"])
+
 
