@@ -22,6 +22,12 @@ interface AggregatorV3Interface {
         );
 }
 
+/**
+ * @title oracle for Uniswap LP tokens which contains stable coins
+ * this contract assume one of stable coins is USDT
+ * and USD value of one USDT token is not strict equal 1 USD
+ *
+*/
 contract UniswapAdapterPriceOracle_USDT_Buck {
     using SafeMath for uint256;
 
@@ -42,6 +48,15 @@ contract UniswapAdapterPriceOracle_USDT_Buck {
         deployer = msg.sender;
     }
 
+    /**
+     * @dev initialize oracle
+     * _priceETHUSDT - address of chain.link oracle for ETH/USDT pair
+     * _priceUSDETH - address of chain.link oracle for USD/ETH pair
+     * _gem - address of UniswapPair contract
+     * _usdtAddress - address of USDT contract
+     * usdtAsString - how USDT contract declare symbol() method
+                      is symbol() returns bytes32 type or string
+     */
     function setup(
         address _priceETHUSDT,
         address _priceUSDETH,
@@ -76,6 +91,9 @@ contract UniswapAdapterPriceOracle_USDT_Buck {
         deployer = address(0);
     }
 
+    /**
+     * @dev calculate price
+     */
     function calc() internal view returns (bytes32, bool) {
         if (
             address(priceETHUSDT) == address(0x0) ||
@@ -130,6 +148,7 @@ contract UniswapAdapterPriceOracle_USDT_Buck {
         uint256 usdtPrice = uint256(answerUSDETH).mul(uint256(answerETHUSDT));
         uint256 r1 = tokenPair.usdtReserve.mul(usdPrec).mul(usdtPrice).div(price1Div);
 
+        //we use the minimum USD value of the two tokens to prevent Uniswap disbalance attack
         uint256 totalValue = r0.min(r1).mul(2); //total value in uni's reserves
         uint256 supply = gem.totalSupply();
 
@@ -141,10 +160,16 @@ contract UniswapAdapterPriceOracle_USDT_Buck {
         );
     }
 
+    /**
+     * @dev base oracle interface see OSM docs
+     */
     function peek() public view returns (bytes32, bool) {
         return calc();
     }
 
+    /**
+     * @dev base oracle interface see OSM docs
+     */
     function read() public view returns (bytes32) {
         bytes32 wut;
         bool haz;
@@ -154,6 +179,13 @@ contract UniswapAdapterPriceOracle_USDT_Buck {
     }
 }
 
+
+/**
+ * @title oracle for Uniswap LP tokens which contains stable coins
+ * this contract assume no USDT tokens in pair
+ * both of stables assumed 1 USD
+ *
+*/
 contract UniswapAdapterPriceOracle_Buck_Buck {
     using SafeMath for uint256;
 
@@ -169,12 +201,19 @@ contract UniswapAdapterPriceOracle_Buck_Buck {
         deployer = msg.sender;
     }
 
+    /**
+     * @dev initialize oracle
+     * _gem - address of UniswapPair contract
+     */
     function setup(address _gem) public {
         require(deployer == msg.sender);
         gem = UniswapV2PairLike(_gem);
         deployer = address(0);
     }
 
+    /**
+     * @dev calculate price
+     */
     function calc() internal view returns (bytes32, bool) {
         (uint112 _reserve0, uint112 _reserve1, ) = gem.getReserves();
 
@@ -193,6 +232,7 @@ contract UniswapAdapterPriceOracle_Buck_Buck {
                 uint256(10)**uint256(IERC20(tokenPair.t1).decimals())
             );
 
+        //we use the minimum USD value of the two tokens to prevent Uniswap disbalance attack
         uint256 totalValue = r0.min(r1).mul(2); //total value in uni's reserves
         uint256 supply = gem.totalSupply();
 
@@ -204,10 +244,16 @@ contract UniswapAdapterPriceOracle_Buck_Buck {
         );
     }
 
+    /**
+     * @dev base oracle interface see OSM docs
+     */
     function peek() public view returns (bytes32, bool) {
         return calc();
     }
 
+    /**
+     * @dev base oracle interface see OSM docs
+     */
     function read() public view returns (bytes32) {
         bytes32 wut;
         bool haz;
