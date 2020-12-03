@@ -242,6 +242,11 @@ contract Initializable {
     uint256[50] private ______gap;
 }
 
+/**
+ * @title Base class LP token value holder
+ *
+ * can works with gems which have different USD nominal and decimal
+*/
 contract LPTokenWrapper is Initializable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -269,10 +274,16 @@ contract LPTokenWrapper is Initializable {
 
     IGemForRewardChecker public gemForRewardChecker;
 
+    /**
+     * @dev Check is LP pair contains only approved stables
+     */
     function checkGem(address gem) internal view returns (bool) {
         return gemForRewardChecker.check(gem);
     }
 
+    /**
+     * @dev Register LP pair only once
+     */
     function registerGem(address gem) internal {
         for (uint256 i = 0; i < registeredGems.length; i++) {
             if (registeredGems[i] == gem) {
@@ -282,6 +293,9 @@ contract LPTokenWrapper is Initializable {
         registeredGems.push(gem);
     }
 
+    /**
+     * @dev returns USD value of all locked LP tokens
+     */
     function totalSupply() public view returns (uint256) {
         uint256 res = 0;
         for (uint256 i = 0; i < registeredGems.length; i++) {
@@ -290,6 +304,9 @@ contract LPTokenWrapper is Initializable {
         return res.div(prec);
     }
 
+    /**
+     * @dev returns USD value of locked LP tokens for specific account
+     */
     function balanceOf(address account) public view returns (uint256) {
         uint256 res = 0;
         for (uint256 i = 0; i < registeredGems.length; i++) {
@@ -298,6 +315,9 @@ contract LPTokenWrapper is Initializable {
         return res.div(prec);
     }
 
+    /**
+     * @dev returns USD value of specific amount of specific LP token
+     */
     function calcCheckValue(uint256 amount, address gem) public view returns (uint256) {
         require(amount > 0);
         PairDesc storage desc = pairDescs[gem];
@@ -308,6 +328,9 @@ contract LPTokenWrapper is Initializable {
         return r;
     }
 
+    /**
+     * @dev lock LP tokens
+     */
     function stakeLp(
         uint256 amount,
         address gem,
@@ -320,6 +343,9 @@ contract LPTokenWrapper is Initializable {
         _totalSupply[gem] = _totalSupply[gem].add(value);
     }
 
+    /**
+     * @dev unlock LP tokens
+     */
     function withdrawLp(
         uint256 amount,
         address gem,

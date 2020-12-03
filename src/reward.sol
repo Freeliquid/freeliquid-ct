@@ -47,6 +47,12 @@ import "./lpTokenWrapper.sol";
 import "./lib.sol";
 import "./ReentrancyGuard.sol";
 
+/**
+ * @title class for handling initial distributions FL tokens
+ *
+ * used by GemJoinWithReward class to distribute FL tokens to
+ * users who initially lock LP-like collaterals to issue USDFL
+*/
 contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
     // --- Auth ---
 
@@ -73,6 +79,9 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
     event Withdrawn(address indexed user, address indexed gem, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
 
+    /**
+     * @dev update some internal rewarding props
+     */
     modifier updateReward(address account) {
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
@@ -87,6 +96,13 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         deployer = msg.sender;
     }
 
+    /**
+     * @dev initialization can be called only once
+     * _gov - FL token contract
+     * _duration - duration of rewarding
+     * _initreward - FL tokens amount to distribute as reward
+     * _starttime - distribution start time
+     */
     function initialize(
         address _gov,
         uint256 _duration,
@@ -105,11 +121,20 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         initRewardAmount(_initreward);
     }
 
+    /**
+     * @dev setup checker contract which will be used to check
+     * that LP pair used for FL rewarding contains only approved stables
+     */
     function setupGemForRewardChecker(address a) public {
         require(deployer == msg.sender);
         gemForRewardChecker = IGemForRewardChecker(a);
     }
 
+    /**
+     * @dev configure Fair Distribution params
+     * _fairDistributionMaxValue - max limit for one user
+     * _fairDistributionTime - time from start when "Fair Distribution" is active
+     */
     function setupFairDistribution(
         uint256 _fairDistributionMaxValue,
         uint256 _fairDistributionTime
@@ -123,6 +148,10 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         fairDistributionTime = _fairDistributionTime;
     }
 
+    /**
+     * @dev register LP pair which will be rewarded when it will be used
+     *      collateral for issuing USDFL
+     */
     function registerPairDesc(
         address gem,
         address adapter,
@@ -145,16 +174,27 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         });
     }
 
+    /**
+     * @dev set deployer prop to NULL to prevent further calling registerPairDesc by deployer(admin)
+     * and prevent some other initialisation calls
+     * needed for fair decentralization
+     */
     function resetDeployer() public {
         // only deployer can do it
         require(deployer == msg.sender);
         deployer = address(0);
     }
 
+    /**
+     * @dev returns current time with cutting by rewarding finish time
+     */
     function lastTimeRewardApplicable() public view returns (uint256) {
         return Math.min(block.timestamp, periodFinish);
     }
 
+    /**
+     * @dev current rewarding speed per one USD value of collateral
+     */
     function rewardPerToken() public view returns (uint256) {
         if (totalSupply() == 0) {
             return rewardPerTokenStored;
@@ -169,6 +209,9 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
             );
     }
 
+    /**
+     * @dev how many FL tokens specific user already earned
+     */
     function earned(address account) public view returns (uint256) {
         return
             balanceOf(account)
@@ -177,6 +220,9 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
                 .add(rewards[account]);
     }
 
+    /**
+     * @dev check USD value of total deposit from specific user and additional collateral amount
+     */
     function testFairDistribution(
         address usr,
         address gem,
@@ -185,6 +231,9 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         return testFairDistributionByValue(usr, calcCheckValue(amount, gem));
     }
 
+    /**
+     * @dev check USD value of total deposit from specific user and additional USD value
+     */
     function testFairDistributionByValue(address usr, uint256 value) public view returns (bool) {
         if (fairDistribution) {
             return
@@ -194,6 +243,10 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         return true;
     }
 
+    /**
+     * @dev check USD value of total deposit from specific user
+     * fail if limit was exceeded
+     */
     function checkFairDistribution(address usr) public view checkStart {
         if (fairDistribution) {
             require(
@@ -204,7 +257,10 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         }
     }
 
-    // stake visibility is public as overriding LPTokenWrapper's stake() function
+    /**
+     * @dev called by join when user locks his collaterals
+     * allowed to call only from join contract (GemJoinWithReward)
+     */
     function stake(
         uint256 amount,
         address gem,
@@ -217,6 +273,10 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         emit Staked(usr, gem, amount);
     }
 
+    /**
+     * @dev called by join when user unlocks his collaterals
+     * allowed to call only from join contract (GemJoinWithReward)
+     */
     function withdraw(
         uint256 amount,
         address gem,
@@ -229,6 +289,9 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         emit Withdrawn(usr, gem, amount);
     }
 
+    /**
+     * @dev send all accrued rewarding FL tokens to tx sender
+     */
     function getReward()
         public
         nonReentrant
@@ -248,6 +311,10 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         return 0;
     }
 
+    /**
+     * @dev check is time to distribute reward expired
+     * set to zero all needed distributing props
+     */
     modifier checkFinish() {
         if (block.timestamp > periodFinish) {
             initreward = 0;
@@ -258,15 +325,24 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
         _;
     }
 
+    /**
+     * @dev check is time allow to start rewarding
+     */
     modifier checkStart() {
         require(allowToStart(), "not start");
         _;
     }
 
+    /**
+     * @dev check is time allow to start rewarding
+     */
     function allowToStart() public view returns (bool) {
         return block.timestamp > starttime;
     }
 
+    /**
+     * @dev setup reward amount to distribute
+     */
     function initRewardAmount(uint256 reward) internal updateReward(address(0)) {
         require(starttime >= block.timestamp);
         rewardRate = reward.div(duration);
@@ -291,6 +367,13 @@ interface VatLike {
     ) external;
 }
 
+/**
+ * @title MakerDAO like adapter for gem join
+ *
+ * have ref to StakingRewards contract to distribute FL
+ *
+ * see MakerDAO docs for details
+*/
 contract GemJoinWithReward is LibNote {
     // --- Auth ---
     mapping(address => uint256) public wards;
@@ -379,6 +462,11 @@ contract GemJoinWithReward is LibNote {
     }
 }
 
+/**
+ * @title MakerDAO like ProxyActions for freeliquid specific reward claiming
+ *
+ * see MakerDAO docs about Proxy for details
+*/
 contract RewardProxyActions {
     function claimReward(address rewarder) public {
         uint256 reward = StakingRewards(rewarder).getReward();
