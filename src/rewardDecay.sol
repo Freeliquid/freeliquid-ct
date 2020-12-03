@@ -29,6 +29,10 @@ import "./rewardsDecayHolder.sol";
 import "./lib.sol";
 import "./ReentrancyGuard.sol";
 
+/**
+ * @title class for handling distributions FL tokens as reward
+ *        for providing liquidity for FL & USDFL tokens
+*/
 contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
     address public gov;
     address public aggregator;
@@ -71,6 +75,11 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         deployer = msg.sender;
     }
 
+    /**
+     * @dev initialization can be called only once
+     * _gov - FL token contract
+     * epochCount - how many epochs we will use
+     */
     function initialize(address _gov, uint256 epochCount) public initializer {
         // only deployer can initialize
         require(deployer == msg.sender);
@@ -88,6 +97,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         holder = new StakingRewardsDecayHolder(address(this));
     }
 
+    /**
+     * @dev setup aggregator contract (RewardDecayAggregator) which allow to claim FL
+     * tokens from hirisk & lowrisk contracts in one tx
+     */
     function setupAggregator(address _aggregator) public {
         require(deployer == msg.sender);
         require(_aggregator != address(0));
@@ -96,16 +109,29 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         aggregator = _aggregator;
     }
 
+    /**
+     * @dev returns time when rewarding will start
+     */
     function getStartTime() public view returns (uint256) {
         return epochs[0].starttime;
     }
 
+    /**
+     * @dev check is time allow to start rewarding
+     */
     modifier checkStart() {
         require(block.timestamp >= getStartTime(), "not start");
         require(epochInited == EPOCHCOUNT, "not all epochs was inited");
         _;
     }
 
+    /**
+     * @dev init specific rewarding epoch
+     * reward - how many Fl tokens we have to distribute in this epoch
+     * starttime - time to start rewarding
+     * duration - duration of each epoch
+     * idx - id of epoch
+     */
     function initRewardAmount(
         uint256 reward,
         uint256 starttime,
@@ -118,11 +144,22 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         initEpoch(reward, starttime, duration, idx);
     }
 
+    /**
+     * @dev setup checker contract which will be used to check
+     * that LP pair used for FL rewarding contains only approved stables
+     */
     function setupGemForRewardChecker(address a) public {
         require(deployer == msg.sender);
         gemForRewardChecker = IGemForRewardChecker(a);
     }
 
+    /**
+     * @dev core func to init specific rewarding epoch
+     * reward - how many Fl tokens we have to distribute in this epoch
+     * starttime - time to start rewarding
+     * duration - duration of each epoch
+     * idx - id of epoch
+     */
     function initEpoch(
         uint256 reward,
         uint256 starttime,
@@ -148,6 +185,12 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         emit RewardAdded(reward, idx, duration, starttime);
     }
 
+    /**
+     * @dev init all reward epochs in one call
+     * rewards - array of reward to distribute (one digit for one epoch)
+     * starttime - time to start rewarding
+     * duration - duration of each epoch
+     */
     function initAllEpochs(
         uint256[] memory rewards,
         uint256 starttime,
@@ -170,18 +213,30 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev returns reward rate for specific epoch
+     */
     function getEpochRewardRate(uint256 epochIdx) public view returns (uint256) {
         return epochs[epochIdx].rewardRate;
     }
 
+    /**
+     * @dev returns epoch start time for specific epoch
+     */
     function getEpochStartTime(uint256 epochIdx) public view returns (uint256) {
         return epochs[epochIdx].starttime;
     }
 
+    /**
+     * @dev returns epoch finish time for specific epoch
+     */
     function getEpochFinishTime(uint256 epochIdx) public view returns (uint256) {
         return epochs[epochIdx].periodFinish;
     }
 
+    /**
+     * @dev calculate total reward to distribute for all epochs
+     */
     function getTotalRewards() public view returns (uint256 result) {
         require(epochInited == EPOCHCOUNT, "not inited");
 
@@ -192,6 +247,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev calculate total time to reward for all epochs
+     */
     function getTotalRewardTime() public view returns (uint256 result) {
         require(epochInited == EPOCHCOUNT, "not inited");
 
@@ -202,6 +260,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev we need to call this func after all epochs will finnally configured
+     * only one call allowed
+     */
     function approveEpochsConsistency() public {
         require(deployer == msg.sender);
         require(epochInited == 0, "double call not allowed");
@@ -221,6 +283,11 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         epochInited = EPOCHCOUNT;
     }
 
+    /**
+     * @dev set deployer prop to NULL to prevent further calling registerPairDesc by deployer(admin)
+     * and prevent some other initialisation calls
+     * needed for fair decentralization
+     */
     function resetDeployer() public {
         // only deployer can do it
         require(deployer == msg.sender);
@@ -228,6 +295,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         deployer = address(0);
     }
 
+    /**
+     * @dev calculate and return current epoch index
+     */
     function calcCurrentEpoch() public view returns (uint256 res) {
         res = 0;
         for (
@@ -239,6 +309,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev calculate current epoch index and store it inside contract storage
+     */
     modifier updateCurrentEpoch() {
         currentEpoch = calcCurrentEpoch();
 
@@ -258,6 +331,14 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         _;
     }
 
+    /**
+     * @dev register LP pair which have to be rewarded when it will be locked
+     * gem - address of LP token contract
+     * adapter - address of adapter contract of LP token contract needed to
+     *           calculate USD value of specific amount of LP tokens
+     * factor -  multiplicator (actually eq 1)
+     * name -    name of LP pair to indentificate in GUI. have to be unique
+     */
     function registerPairDesc(
         address gem,
         address adapter,
@@ -288,6 +369,15 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         pairNameToGem[name] = gem;
     }
 
+    /**
+     * @dev returns LP pair statistic for specific user account
+     * return values:
+     * gem - address of LP token
+     * avail - amount of tokens on user wallet
+     * locked - amount of tokens locked for rewarding by user
+     * lockedValue - USD value of tokens locked for rewarding by user
+     * availValue - USD value of tokens on user wallet
+     */
     function getPairInfo(bytes32 name, address account)
         public
         view
@@ -311,6 +401,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         availValue = IAdapter(desc.adapter).calc(gem, avail, desc.factor);
     }
 
+    /**
+     * @dev returns USD value of 1 LP token with specific name
+     */
     function getPrice(bytes32 name) public view returns (uint256) {
         address gem = pairNameToGem[name];
         if (gem == address(0)) {
@@ -321,16 +414,29 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         return IAdapter(desc.adapter).calc(gem, 1, desc.factor);
     }
 
+    /**
+     * @dev returns current rewarding speed. How many tokens distributed in one hour
+     * at current epoch
+     */
     function getRewardPerHour() public view returns (uint256) {
         EpochData storage epoch = epochs[calcCurrentEpoch()];
         return epoch.rewardRate * 3600;
     }
 
+    /**
+     * @dev returns current time with cutting by rewarding finish time
+     * value calculated for specific epoch
+     */
     function lastTimeRewardApplicable(EpochData storage epoch) internal view returns (uint256) {
         assert(block.timestamp >= epoch.starttime);
         return Math.min(block.timestamp, epoch.periodFinish);
     }
 
+    /**
+     * @dev returns current rewarding speed per one USD value of LP pair
+     * value calculated for specific epoch
+     * lastTotalSupply corresponded for current epoch have to be provided
+     */
     function rewardPerToken(EpochData storage epoch, uint256 lastTotalSupply)
         internal
         view
@@ -349,6 +455,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
             );
     }
 
+    /**
+     * @dev returns how many FL tokens specific user already earned for specific epoch
+     * lastTotalSupply corresponded for current epoch have to be provided
+     */
     function earnedEpoch(
         address account,
         EpochData storage epoch,
@@ -363,6 +473,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
                 .add(epoch.rewards[account]);
     }
 
+    /**
+     * @dev returns how many FL tokens of specific user already earned remains unclaimed
+     */
     function earned(address account) public view returns (uint256 acc) {
         uint256 currentSupply = totalSupply();
         int256 lastClaimedEpochIdx = int256(lastClaimedEpoch[account]);
@@ -380,6 +493,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         acc = acc.add(yetNotClaimedOldEpochRewards[account]);
     }
 
+    /**
+     * @dev returns how many FL tokens specific user already earned for specified epoch
+     * also it clear reward cache
+     */
     function getRewardEpoch(address account, EpochData storage epoch) internal returns (uint256) {
         uint256 reward = earnedEpoch(account, epoch, epoch.lastTotalSupply);
         if (reward > 0) {
@@ -389,6 +506,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         return 0;
     }
 
+    /**
+     * @dev returns how many FL tokens specific user already earned from moment of last claiming epoch
+     * also this func update last claiming epoch
+     */
     function takeStockReward(address account) internal returns (uint256 acc) {
         for (uint256 i = lastClaimedEpoch[account]; i <= currentEpoch; i++) {
             uint256 reward = getRewardEpoch(account, epochs[i]);
@@ -398,6 +519,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         lastClaimedEpoch[account] = currentEpoch;
     }
 
+    /**
+     * @dev recalculate and update yetNotClaimedOldEpochRewards cache
+     */
     function gatherOldEpochReward(address account) internal {
         if (currentEpoch == 0) {
             return;
@@ -407,6 +531,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         yetNotClaimedOldEpochRewards[account] = yetNotClaimedOldEpochRewards[account].add(acc);
     }
 
+    /**
+     * @dev called when we lock LP tokens for specific epoch (we expect current epoch here)
+     */
     function stakeEpoch(
         uint256 amount,
         address gem,
@@ -418,6 +545,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         emit Staked(usr, gem, amount);
     }
 
+    /**
+     * @dev called by LP token holder contract when we lock LP tokens
+     * only LP token holder contract allow to call this func
+     */
     function stake(
         address account,
         uint256 amount,
@@ -428,6 +559,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         stakeEpoch(amount, gem, account, epochs[currentEpoch]);
     }
 
+    /**
+     * @dev called when we unlock LP tokens for specific epoch (we expect current epoch here)
+     */
     function withdrawEpoch(
         uint256 amount,
         address gem,
@@ -439,6 +573,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         emit Withdrawn(usr, gem, amount);
     }
 
+    /**
+     * @dev called by LP token holder contract when we unlock LP tokens
+     * only LP token holder contract allow to call this func
+     */
     function withdraw(
         address account,
         uint256 amount,
@@ -449,6 +587,9 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         withdrawEpoch(amount, gem, account, epochs[currentEpoch]);
     }
 
+    /**
+     * @dev core func to actual transferting rewarded FL tokens to user wallet
+     */
     function getRewardCore(address account)
         internal
         checkStart
@@ -468,15 +609,26 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev func to actual transferting rewarded FL tokens to user wallet
+     */
     function getReward() public nonReentrant returns (uint256) {
         return getRewardCore(msg.sender);
     }
 
+    /**
+     * @dev func to actual transferting rewarded FL tokens to user wallet
+     * we call this func from aggregator contract (RewardDecayAggregator) to allow to claim FL
+     * tokens from hirisk & lowrisk contracts in one tx
+     */
     function getRewardEx(address account) public nonReentrant returns (uint256) {
         require(aggregator == msg.sender);
         return getRewardCore(account);
     }
 
+    /**
+     * @dev update some internal rewarding props
+     */
     modifier updateReward(address account, EpochData storage epoch) {
         assert(account != address(0));
 
@@ -488,6 +640,10 @@ contract StakingRewardsDecay is LPTokenWrapper, Auth, ReentrancyGuard {
     }
 }
 
+
+/**
+ * @title class for combine reward claiming for hirisk & lowrisk contracts in one tx
+*/
 contract RewardDecayAggregator {
     using SafeMath for uint256;
 
@@ -498,12 +654,18 @@ contract RewardDecayAggregator {
         rewarders[1] = StakingRewardsDecay(rewarder1);
     }
 
+    /**
+     * @dev claim unclaimed reward
+     */
     function claimReward() public {
         for (uint256 i = 0; i < rewarders.length; i++) {
             rewarders[i].getRewardEx(msg.sender);
         }
     }
 
+    /**
+     * @dev how many rewards remains unclaimed
+     */
     function earned() public view returns (uint256 res) {
         for (uint256 i = 0; i < rewarders.length; i++) {
             res = res.add(rewarders[i].earned(msg.sender));

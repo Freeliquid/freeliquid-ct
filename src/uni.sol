@@ -24,6 +24,10 @@ interface UniswapV2PairLike {
         );
 }
 
+/**
+ * @title Adapter class needed to calculate USD value of specific amount of LP tokens
+ * this contract assumes that USD value of each part of LP pair is eq 1 USD
+ */
 contract UniswapAdapterForStables is IAdapter {
     using SafeMath for uint256;
 
@@ -63,6 +67,11 @@ contract UniswapAdapterForStables is IAdapter {
     }
 }
 
+
+/**
+ * @title Adapter class needed to calculate USD value of specific amount of LP tokens
+ * this contract assumes that USD value of only one part of LP pair is eq 1 USD
+ */
 contract UniswapAdapterWithOneStable is IAdapter {
     using SafeMath for uint256;
 
@@ -120,6 +129,11 @@ contract UniswapAdapterWithOneStable is IAdapter {
     }
 }
 
+
+/**
+ * @title Base class for contract which will be used to check
+ * that LP pair used for FL rewarding contains only approved stables
+ */
 contract UniForRewardCheckerBase {
     mapping(address => bool) public tokens;
 

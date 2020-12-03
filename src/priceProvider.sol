@@ -12,6 +12,11 @@ interface RegistryLike {
     function list() external view returns (bytes32[] memory);
 }
 
+
+/**
+ * @title class which update price feed of Vat class and allow to get
+ * rewards for such updating
+ */
 contract PriceProvider {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -34,6 +39,15 @@ contract PriceProvider {
         owner = msg.sender;
     }
 
+    /**
+     * @dev initial setup
+     * _gov - FL token contract
+     * _spot - spot contract
+     * _registry - IlkRegistry contract
+     * _updatePeriod - min time period of calling poke method
+     *                 to be rewarded by this contract
+     * _rewardTime - estimating time how long will it last
+     */
     function setup(
         address _gov,
         address _spot,
@@ -63,6 +77,9 @@ contract PriceProvider {
         require(rewardPerPeriod > 0, "rewardPerPeriod is zero");
     }
 
+    /**
+     * @dev claim accumulated user's reward
+     */
     function getReward() public returns (uint256) {
         uint256 acc = rewards[msg.sender];
         if (acc > 0) {
@@ -74,6 +91,9 @@ contract PriceProvider {
         return acc;
     }
 
+    /**
+     * @dev update price feed
+     */
     function poke() public {
         bytes32[] memory ilks = registry.list();
         for (uint256 i = 0; i < ilks.length; i++) {

@@ -18,6 +18,13 @@ interface IRewarder {
     ) external;
 }
 
+
+/**
+ * @title class which hold LP tokens of users
+ * this class is very simple and understandable to make holding users's
+ * LP tokens obviously
+ * only this contract allow to call stake&withdraw methods of StakingRewardsDecay
+ */
 contract StakingRewardsDecayHolder {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;

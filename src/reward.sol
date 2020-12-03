@@ -150,7 +150,13 @@ contract StakingRewards is LPTokenWrapper, Auth, ReentrancyGuard {
 
     /**
      * @dev register LP pair which will be rewarded when it will be used
-     *      collateral for issuing USDFL
+     *      as collateral for issuing USDFL
+     * gem - address of LP token contract
+     * adapter - address of adapter contract of LP token contract needed to
+     *           calculate USD value of specific amount of LP tokens
+     * factor -  multiplicator (actually eq 1)
+     * staker -  the address of the contract that is allowed to call stake & withdraw
+     *           actually it have to be join contract
      */
     function registerPairDesc(
         address gem,
