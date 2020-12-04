@@ -302,7 +302,7 @@ def adjust(distrib, adjVal, days=90, stepDays=2, digits=DIGITS):
 
     x_compat=True
     panes = 2
-    fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 20))
+    fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=False, squeeze=True, figsize=(30, 20))
     df.perHour.plot(ax=axs[0], color="red", lw=9, x_compat=x_compat)
     df.i.plot(ax=axs[1], color="blue", lw=9, x_compat=x_compat)
 
