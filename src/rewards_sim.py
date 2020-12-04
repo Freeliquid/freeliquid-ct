@@ -140,9 +140,16 @@ def applyTicks(axs, days, stop):
 
         for item in ([ax.xaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(32)
+def gen_ct_data(distrib, digits):
+    prec=9
+    rint = (distrib * (10**prec)).astype("int64")
+    rint = [x*(10**(digits-prec)) for x in rint.to_list()]
+    return rint
 
+DIGITS=8
+DIGITS=18
 
-def d_analize(targetCirculate, days, name, stepDays, digits=8):
+def d_analize(targetCirculate, days, name, stepDays, digits=DIGITS):
     panes = 2
     fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=False, squeeze=True, figsize=(30, 20))
 
@@ -155,7 +162,7 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
 
     starty = int(targetCirculate*(10**digits)/integralOnStop)
 
-    print("start reward", starty, "step", step)
+    print("start reward", starty, "step", step, "integralOnStop", integralOnStop)
     df = get_data(stop, step, starty)
     df = df.set_index("x")
 
@@ -193,10 +200,9 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     if panes > 2:
         (df.i-df.s).plot(ax=axs[2], color="blue", x_compat=x_compat)
 
+    df.to_csv(name+".csv")
 
-    prec=9
-    rint = (distrib.i * (10**prec)).astype("int64")
-    rint = [x*(10**(digits-prec)) for x in rint.to_list()]
+    rint = gen_ct_data(distrib.i, digits)
 
     print(rint)
 
@@ -211,7 +217,7 @@ def d_analize(targetCirculate, days, name, stepDays, digits=8):
     plt.savefig(name+".png", dpi=300)
     plt.close()
 
-    return df["perHour"]
+    return df["perHour"], distrib
 
 def draw_combined(datas, names):
 
@@ -228,12 +234,14 @@ def draw_combined(datas, names):
 
     for distr, name in zip(datas, names):
         df[name] = distr.resample("1d").last().fillna(method='ffill')
+        # total += df[name].resample("1h").last().fillna(method='ffill').fillna(0.0).cumsum()
+        # dfh[name] = df[name].resample("1h").last().fillna(method='ffill').fillna(0.0).cumsum()
         total += df[name].resample("1h").last().fillna(method='ffill').fillna(0.0).cumsum()
         dfh[name] = df[name].resample("1h").last().fillna(method='ffill').fillna(0.0).cumsum()
 
 
     x_compat = True
-    print(df)
+    # print(df)
 
     panes = 2
     fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 20))
@@ -241,29 +249,81 @@ def draw_combined(datas, names):
     applyTicks(axs, 900, stop.timestamp())
 
 
+
     df.plot(ax=axs[0], lw=9, x_compat=x_compat)
 
     dfh.plot(ax=axs[1], lw=9, x_compat=x_compat)
     total.plot(ax=axs[1], lw=9, x_compat=x_compat)
 
-    axs[1].axhline(y=1000000, lw=1.0)
+    axs[1].axhline(y=1000000, lw=1.0, color="black")
+    axs[1].axhline(y=450000, lw=1.0, color="black")
+    axs[1].axhline(y=400000, lw=1.0, color="black")
 
     loc = IndexLocator(100000, 100000)
-    axs[1].yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
     axs[1].yaxis.set_major_locator(loc)
-
-
+    formater = ScalarFormatter(useOffset=False)
+    formater.set_powerlimits((-10,10))
+    axs[1].yaxis.set_major_formatter(formater)
 
     plt.savefig("combo.png", dpi=300)
     plt.close()
 
+def adjust(distrib, adjVal, days=90, stepDays=2, digits=DIGITS):
+    print(distrib.i)
+    print(len(distrib))
+
+    totalToAdj=len(distrib) * adjVal;
+
+    orgPerHour, adjDistrib = d_analize(targetCirculate=totalToAdj, days=days, stepDays=stepDays, name="adjust_sub")
+    # print(adjDistrib)
+
+
+    distrib.i += adjVal
+    distrib.i -= adjDistrib.i
+    # print(distrib)
+    print(distrib.i.sum())
+
+
+    hoursInDistribution = days*24
+    stop = 1*hoursInDistribution*3600
+
+
+    index = pd.date_range(start=orgPerHour.index.min(),
+                          periods=len(orgPerHour)+1, freq=str(stepDays)+"d")
+
+
+    df = pd.DataFrame(index=index);
+    df["perHour"] = (distrib.i / (stepDays*24))
+    df["i"] = (df["perHour"].shift(1)*24*stepDays).cumsum().fillna(0)
+    df["perHour"].fillna(0, inplace=True)
+
+
+    df.to_csv("df.csv")
+
+    x_compat=True
+    panes = 2
+    fig, axs = plt.subplots(panes, 1, tight_layout=True, sharex=True, squeeze=True, figsize=(30, 20))
+    df.perHour.plot(ax=axs[0], color="red", lw=9, x_compat=x_compat)
+    df.i.plot(ax=axs[1], color="blue", lw=9, x_compat=x_compat)
+
+    applyTicks(axs, days, stop)
+
+    plt.savefig("adjusted.png", dpi=300)
+    plt.close()
+
+
+    rint = gen_ct_data(distrib.i, digits)
+    print(rint)
+    return df["perHour"]
+
 
 if __name__ == "__main__":
-    # sq_analize()
     lowriskDays = 7
     hiriskDays = 2
-    lowrisk = d_analize(targetCirculate=450000, days=365, stepDays=lowriskDays, name="lowrisk")
-    hirisk = d_analize(targetCirculate=400000, days=90, stepDays=hiriskDays, name="hirisk")
-    draw_combined([lowrisk, hirisk], ["lowrisk", "hirisk"])
+    lowrisk, _ = d_analize(targetCirculate=450000, days=365, stepDays=lowriskDays, name="lowrisk")
+    hirisk, distrib = d_analize(targetCirculate=400000, days=90, stepDays=hiriskDays, name="hirisk")
+    hiriskAdjusted = adjust(distrib, 4500, days=90, stepDays=hiriskDays)
+
+    draw_combined([lowrisk, hiriskAdjusted], ["lowrisk", "hirisk"])
 
 
