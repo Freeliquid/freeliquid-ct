@@ -1,0 +1,15 @@
+contract 
+https://etherscan.io/address/0x39bba1179bdc414bccd5002046bea9bb07d1c524
+Helps to get current TLV used to issue USDFL
+Call getTotalStat() to get value. It returns value nominated in USD scaled to 1e18 
+
+contract
+https://etherscan.io/address/0x975aa6606f1e5179814baef22811441c5060e815
+Returns TLV for hi-risk FL/USDFL pool
+Call totalSupply() to get value. It returns value nominated in USD scaled to 1e18
+
+
+contract
+https://etherscan.io/address/0x5e4935fe0f1f622bfc9521c0e098898e7b8b573c#code
+Returns TLV for low-risk pool of stabled to USDFL
+Call totalSupply() to get value. It returns value nominated in USD scaled to 1e18
