@@ -139,15 +139,15 @@ interface CurveGauge {
     function deposit(uint256 _value) external;
     function withdraw(uint256 _value) external;
 
-    function lp_token() external returns (address);
-    function minter() external returns (address);
-    function crv_token() external returns (address);
-    function voting_escrow() external returns (address);
+    function lp_token() external view returns (address);
+    function minter() external view returns (address);
+    function crv_token() external view returns (address);
+    function voting_escrow() external view returns (address);
 }
 
 interface CurveGaugeReward {
     function rewarded_token() external returns (address);
-    function claim_rewards() external;
+    function claim_rewards(address addr) external;
 }
 
 interface Minter {
@@ -181,7 +181,7 @@ contract Bag {
         Minter(minter).mint(address(curveGauge));
 
         if (address(curveGaugeReward) != address(0)) {
-            curveGaugeReward.claim_rewards();
+            curveGaugeReward.claim_rewards(address(this));
         }
     }
 

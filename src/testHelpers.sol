@@ -180,6 +180,10 @@ contract TestBase is DSTest {
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D); //get hevm instance
     }
 
+    function callFail() external {
+        fail();
+    }
+
     function bucksToPair(
         uint256 v,
         DSToken t,
