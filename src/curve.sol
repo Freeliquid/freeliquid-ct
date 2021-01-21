@@ -209,7 +209,7 @@ contract Bag {
     }
 
     function join(CurveGauge curveGauge, address gem, uint256 wad, CurveGaugeReward curveGaugeReward) external {
-        require(owner == msg.sender, "GJFC/bag-exit-auth");
+        require(owner == msg.sender, "GJFC/bag-join-auth");
 
         amnt = amnt.add(wad);
         claim(curveGauge, curveGaugeReward);
@@ -219,26 +219,32 @@ contract Bag {
         curveGauge.deposit(wad);
     }
 
+    function init(CurveGauge curveGauge) external {
+        require(owner == msg.sender, "GJFC/bag-init-auth");
+        IERC20 crv = IERC20(curveGauge.crv_token());
+        crv.approve(curveGauge.voting_escrow(), uint256(-1));
+    }
+
     function create_lock(CurveGauge curveGauge, uint256 _value, uint256 _unlock_time) external {
-        require(owner == msg.sender, "GJFC/bag-exit-auth");
+        require(owner == msg.sender, "GJFC/bag-crt-auth");
         VotingEscrow votingEscrow = VotingEscrow(curveGauge.voting_escrow());
         votingEscrow.create_lock(_value, _unlock_time);
     }
 
     function increase_amount(CurveGauge curveGauge, uint256 _value) external {
-        require(owner == msg.sender, "GJFC/bag-exit-auth");
+        require(owner == msg.sender, "GJFC/bag-inc-amnt-auth");
         VotingEscrow votingEscrow = VotingEscrow(curveGauge.voting_escrow());
         votingEscrow.increase_amount(_value);
     }
 
     function increase_unlock_time(CurveGauge curveGauge, uint256 _unlock_time) external {
-        require(owner == msg.sender, "GJFC/bag-exit-auth");
+        require(owner == msg.sender, "GJFC/bag-inc-time-auth");
         VotingEscrow votingEscrow = VotingEscrow(curveGauge.voting_escrow());
         votingEscrow.increase_unlock_time(_unlock_time);
     }
 
     function withdraw(CurveGauge curveGauge, address usr) external {
-        require(owner == msg.sender, "GJFC/bag-exit-auth");
+        require(owner == msg.sender, "GJFC/bag-with-auth");
         VotingEscrow votingEscrow = VotingEscrow(curveGauge.voting_escrow());
         votingEscrow.withdraw();
 
@@ -310,7 +316,9 @@ contract GemJoinForCurve is LibNote {
         if (bags[user] != address(0)) {
             bag = bags[user];
         } else {
-            bag = address(new Bag());
+            Bag b = new Bag();
+            b.init(curveGauge);
+            bag = address(b);
             bags[user] = bag;
         }
     }
@@ -345,6 +353,8 @@ contract GemJoinForCurve is LibNote {
     }
 
     function create_lock(uint256 _value, uint256 _unlock_time) external {
+        require(live == 1, "GJFC/not-live");
+
         address bag = bags[msg.sender];
         require(bag != address(0), "GJFC/zero-bag");
 
@@ -357,6 +367,8 @@ contract GemJoinForCurve is LibNote {
     }
 
     function increase_amount(uint256 _value) external {
+        require(live == 1, "GJFC/not-live");
+
         address bag = bags[msg.sender];
         require(bag != address(0), "GJFC/zero-bag");
 
@@ -369,6 +381,8 @@ contract GemJoinForCurve is LibNote {
     }
 
     function increase_unlock_time(uint256 _unlock_time) external {
+        require(live == 1, "GJFC/not-live");
+
         address bag = bags[msg.sender];
         require(bag != address(0), "GJFC/zero-bag");
         Bag(bag).increase_unlock_time(curveGauge, _unlock_time);

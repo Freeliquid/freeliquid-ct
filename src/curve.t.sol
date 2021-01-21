@@ -5,6 +5,7 @@ import "ds-token/token.sol";
 import "./testHelpers.sol";
 import "./curvePoolMock.sol";
 import "./IERC20.sol";
+import "./safeMath.sol";
 
 import "./curve.sol";
 
@@ -20,48 +21,84 @@ contract MinterMock {
         uint256 value = IERC20(CurveGauge(gauge_addr).lp_token()).balanceOf(msg.sender);
         crv.mint(msg.sender, value*2);
     }
+
+    function testMintTo(address to, uint256 value) external {
+        crv.mint(to, value);
+    }
+
 }
 
 
-contract VotingEscrowMock {
+contract LastSender {
+    address public lastSender;
+
+    function popLastSender() external returns (address r) {
+        r = lastSender;
+        lastSender = address(0);
+    }
+}
+
+
+contract VotingEscrowMock is LastSender {
+
+    using SafeMath for uint256;
+
+
+    IERC20 crv;
+
+    mapping (address => uint256) public lockedAmount;
+    mapping (address => uint256) public lockedTime;
+
+    constructor(address _crv) public {
+        crv = IERC20(_crv);
+    }
+
 
     function create_lock(uint256 _value, uint256 _unlock_time) external {
+        require(lockedAmount[msg.sender] == 0);
+        require(lockedTime[msg.sender] == 0);
 
+        crv.transferFrom(msg.sender, address(this), _value);
+
+        lastSender = msg.sender;        lockedAmount[msg.sender] = _value;
+        lockedTime[msg.sender] = _unlock_time;
     }
 
     function increase_amount(uint256 _value) external {
-
+        crv.transferFrom(msg.sender, address(this), _value);
+        lastSender = msg.sender;
+        lockedAmount[msg.sender] += _value;
     }
 
     function increase_unlock_time(uint256 _unlock_time) external {
-
+        lastSender = msg.sender;
+        lockedTime[msg.sender] += _unlock_time;
     }
 
     function withdraw() external {
+        crv.transfer(msg.sender, lockedAmount[msg.sender]);
 
+        lockedTime[msg.sender] = 0;
+        lockedAmount[msg.sender] = 0;
+
+        lastSender = msg.sender;
     }
 }
 
-contract CurveGaugeMock is CurveGauge {
+contract CurveGaugeMock is CurveGauge, LastSender {
 
-    MinterMock theMinter;
+    MinterMock public theMinter;
 
     DSToken public rewardToken;
     VotingEscrowMock public votingEscrow;
     DSToken public lp;
-    address public lastSender;
 
 
     constructor(DSToken _lp) public {
         theMinter = new MinterMock();
         lp = _lp;
         rewardToken = new DSToken("REWARD");
-        votingEscrow = new VotingEscrowMock();
-    }
-
-    function popLastSender() external returns (address r) {
-        r = lastSender;
-        lastSender = address(0);
+        votingEscrow = new VotingEscrowMock(address(theMinter.crv()));
     }
 
     function deposit(uint256 _value) external {
@@ -182,9 +219,22 @@ contract CurveJoinTest is TestBase {
     }
 
 
+    function addCrvTo(address to, uint256 value) public {
+        DSToken crv = gauge.theMinter().crv();
+        uint256 b = crv.balanceOf(to);
+
+        gauge.theMinter().testMintTo(to, value);
+
+        assertEqM(crv.balanceOf(to) - b, value, "crv-mint");
+    }
+
     function addLiquidityCore(DSToken _lp, uint256 v, User user) public returns (uint256) {
+        return addLiquidityCoreEx(_lp, v, address(user));
+    }
+
+    function addLiquidityCoreEx(DSToken _lp, uint256 v, address to) public returns (uint256) {
         uint256 l = v * 1e18;
-        _lp.mint(address(user), l);
+        _lp.mint(to, l);
         return l;
     }
 
@@ -463,4 +513,87 @@ contract CurveJoinTest is TestBase {
         implCrvRewardsPartialExit(joinWithRewards, gaugeWithRewards, lp2, false);
     }
 
+
+    function testCrvVotingEscrow() public {
+
+        bool ret;
+
+        uint256 v = 10000;
+        uint256 l = addLiquidityCoreEx(lp1, v, address(this));
+
+        assertEqM(lp1.balanceOf(address(this)), l, "1");
+
+        VotingEscrowMock votingEscrow = gauge.votingEscrow();
+        DSToken crv = gauge.theMinter().crv();
+
+        hevm.warp(1);
+        uint256 crvValue = 1000;
+        uint256 crvValue2 = 2000;
+
+        addCrvTo(address(this), crvValue);
+        crv.approve(address(join), crvValue);
+
+        (ret, ) = address(join).call(
+            abi.encodeWithSelector(join.create_lock.selector, crvValue, 100)
+        );
+        if (ret) {
+            emit log_bytes32("join crt must fail");
+            fail();
+        }
+
+
+        join.gem().approve(address(join), l);
+        join.join(address(this), l);
+
+        address bag = join.bags(address(this));
+        assertTrue(bag != address(0));
+
+        assertTrue(gauge.popLastSender() == address(bag));
+
+        uint256 time1 = 100;
+        uint256 time2 = 200;
+
+        assertEqM(crv.balanceOf(gauge.voting_escrow()), 0, "1");
+        join.create_lock(crvValue, time1);
+        assertTrue(votingEscrow.popLastSender() == address(bag));
+        assertTrue(votingEscrow.popLastSender() == address(0));
+
+
+        assertEqM(crv.balanceOf(gauge.voting_escrow()), crvValue, "2");
+        assertEqM(crv.balanceOf(address(this)), 0, "3");
+
+
+
+        (ret, ) = address(join).call(
+            abi.encodeWithSelector(join.increase_amount.selector, crvValue2)
+        );
+        if (ret) {
+            emit log_bytes32("join inc amnt must fail");
+            fail();
+        }
+
+        assertTrue(votingEscrow.popLastSender() == address(0));
+
+
+        addCrvTo(address(this), crvValue2);
+        crv.approve(address(join), crvValue2);
+        join.increase_amount(crvValue2);
+        assertTrue(votingEscrow.popLastSender() == address(bag));
+
+
+        assertEqM(crv.balanceOf(gauge.voting_escrow()), crvValue+crvValue2, "4");
+        assertEqM(crv.balanceOf(address(this)), 0, "5");
+        assertEqM(votingEscrow.lockedAmount(bag), crvValue+crvValue2, "6");
+        assertEqM(votingEscrow.lockedTime(bag), time1, "7");
+
+        join.increase_unlock_time(time2);
+        assertTrue(votingEscrow.popLastSender() == address(bag));
+
+        assertEqM(crv.balanceOf(gauge.voting_escrow()), crvValue+crvValue2, "8");
+        assertEqM(crv.balanceOf(address(this)), 0, "9");
+        assertEqM(votingEscrow.lockedAmount(bag), crvValue+crvValue2, "10");
+        assertEqM(votingEscrow.lockedTime(bag), time1+time2, "11");
+
+
+    }
 }
