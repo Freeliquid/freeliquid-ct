@@ -80,7 +80,7 @@ contract CollateralStat {
 
     function getApy(uint256 amount, uint256 price, RewardPoolLike pool) internal view returns (uint256) {
 
-        uint256 tokensInYear = amount.mul(pool.getRewardPerHour().mul(HOURS_IN_YEAR)).div(pool.totalSupply());
+        uint256 tokensInYear = amount.mul(pool.getRewardPerHour().mul(HOURS_IN_YEAR)).div(pool.totalSupply()+amount);
         return tokensInYear.mul(price).div(1e18);
     }
 
