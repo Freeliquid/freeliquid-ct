@@ -43,12 +43,4 @@ contract LiquidationTest is TestBase {
         flip.kick(address(this), address(this), 1, 1, 1);
     }
 
-    function testFlipperFailKick() public {
-        flip.file("tau", 2**48 - 1);
-        assertFail(
-            address(flip),
-            abi.encodeWithSelector(flip.kick.selector, address(this), address(this), 1, 1, 1),
-            "kick must fail"
-        );
-    }
 }

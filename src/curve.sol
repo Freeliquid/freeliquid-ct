@@ -257,6 +257,8 @@ contract Bag {
     }
 }
 
+
+
 /**
  * @title MakerDAO like adapter for gem join
  *
@@ -392,5 +394,161 @@ contract GemJoinForCurve is LibNote {
         address bag = bags[msg.sender];
         require(bag != address(0), "GJFC/zero-bag");
         Bag(bag).withdraw(curveGauge, msg.sender);
+    }
+}
+
+
+
+contract BagSimple {
+
+    using SafeMath for uint256;
+
+    address public owner;
+    uint256 amnt;
+
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    function claim(CurveGauge curveGauge) internal {
+        address minter = curveGauge.minter();
+        Minter(minter).mint(address(curveGauge));
+    }
+
+    function transferToken(uint256 wad, address token, address usr, uint256 total) internal {
+        uint256 tokenToTransfer = IERC20(token).balanceOf(address(this)).mul(wad).div(total);
+        require(IERC20(token).transfer(usr, tokenToTransfer), "GJFC/bag-failed-tkn-tran");
+    }
+
+    function exit(CurveGauge curveGauge, address gem, address usr, uint256 wad) external {
+        require(owner == msg.sender, "GJFC/bag-exit-auth");
+
+        uint256 amntBefore = amnt;
+        amnt = amnt.sub(wad);
+
+        claim(curveGauge);
+
+        transferToken(wad, curveGauge.crv_token(), usr, amntBefore);
+        curveGauge.withdraw(wad);
+
+        require(IERC20(gem).transfer(usr, wad), "GJFC/bag-failed-transfer");
+    }
+
+    function join(CurveGauge curveGauge, address gem, uint256 wad) external {
+        require(owner == msg.sender, "GJFC/bag-join-auth");
+
+        amnt = amnt.add(wad);
+        claim(curveGauge);
+
+
+        IERC20(gem).approve(address(curveGauge), wad);
+        curveGauge.deposit(wad);
+    }
+
+    function init(CurveGauge curveGauge) external {
+        require(owner == msg.sender, "GJFC/bag-init-auth");
+        IERC20 crv = IERC20(curveGauge.crv_token());
+        crv.approve(curveGauge.voting_escrow(), uint256(-1));
+    }
+}
+
+
+
+/**
+ * @title MakerDAO like adapter for gem join
+ *
+ * see MakerDAO docs for details
+ * simple optimized version with no boost
+*/
+contract GemJoinForCurveSimple is LibNote {
+
+    using SafeMath for uint256;
+
+    // --- Auth ---
+    mapping(address => uint256) public wards;
+
+    function rely(address usr) external note auth {
+        wards[usr] = 1;
+    }
+
+    function deny(address usr) external note auth {
+        wards[usr] = 0;
+    }
+
+    modifier auth {
+        require(wards[msg.sender] == 1, "GJFC/not-authorized");
+        _;
+    }
+
+
+    VatLike public vat; // CDP Engine
+    bytes32 public ilk; // Collateral Type
+    IERC20 public gem;
+    CurveGauge public curveGauge;
+    uint256 public dec;
+    uint256 public live; // Active Flag
+    uint256 public totalCollateral;
+
+    mapping(address => address) public bags;
+
+
+    constructor(
+        address vat_,
+        bytes32 ilk_,
+        address curveGauge_,
+        bool
+    ) public {
+        wards[msg.sender] = 1;
+        live = 1;
+        vat = VatLike(vat_);
+        ilk = ilk_;
+        curveGauge = CurveGauge(curveGauge_);
+        gem = IERC20(curveGauge.lp_token());
+        require(address(gem) != address(0));
+
+        dec = gem.decimals();
+        require(dec >= 18, "GJFC/decimals-18-or-higher");
+    }
+
+    function makeBag(address user) internal returns (address bag) {
+        if (bags[user] != address(0)) {
+            bag = bags[user];
+        } else {
+            BagSimple b = new BagSimple();
+            b.init(curveGauge);
+            bag = address(b);
+            bags[user] = bag;
+        }
+    }
+
+    function cage() external note auth {
+        live = 0;
+    }
+
+    function join(address urn, uint256 wad) external note {
+        require(live == 1, "GJFC/not-live");
+        require(int256(wad) >= 0, "GJFC/overflow");
+        vat.slip(ilk, urn, int256(wad));
+        totalCollateral = totalCollateral.add(wad);
+
+        address bag = makeBag(msg.sender);
+
+        require(
+            gem.transferFrom(msg.sender, bag, wad),
+            "GJFC/failed-transfer"
+        );
+
+        BagSimple(bag).join(curveGauge, address(gem), wad);
+    }
+
+    function exit(address usr, uint256 wad) external note {
+        require(wad <= 2**255, "GJFC/overflow");
+        vat.slip(ilk, msg.sender, -int256(wad));
+        totalCollateral = totalCollateral.sub(wad);
+
+        address bag = bags[msg.sender];
+        require(bag != address(0), "GJFC/zero-bag");
+
+        BagSimple(bag).exit(curveGauge, address(gem), usr, wad);
     }
 }
